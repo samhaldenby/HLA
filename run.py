@@ -33,15 +33,18 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     wellPath="%s/%s/"%(inputPath, wellId)
     
     #load references
-    r = reference.AaReference()
+    #r = reference.AaReference()
+    r = reference.DnaReference()
     r.load_reference_tabbed(referenceName)#("/home/sh695/Documents/Scripts/PythonScripts/HLA/modules/subject.txt")
 
 
     #create aligner
-    a = align.AaAligner()
+    a = align.DnaAligner()
+    #a = align.AaAligner()
     
     #load reads into clusters 
-    c1 = cluster.AaClusters()
+    #c1 = cluster.AaClusters()
+    c1 = cluster.DnaClusters()
     c1.set_read_region(0,160)
     c1.load_from_fq("%s2_2_F.fq"%wellPath)
     a.align(c1, r)
@@ -49,14 +52,16 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
 
     
     
-    c2 = cluster.AaClusters()
+    #c2 = cluster.AaClusters()
+    c2 = cluster.DnaClusters()
     c2.set_read_region(0,150)
     c2.load_from_fq("%s2_4_F.fq"%wellPath)
     a.align(c2, r)
     #a.align_unique_only(c2, r)
     
     
-    c3 = cluster.AaClusters()
+    #c3 = cluster.AaClusters()
+    c3 = cluster.DnaClusters()
     c3.set_read_region(33,200)
     c3.load_from_fq("%s2_4_R.fq"%wellPath)
     #a.calculate_alignment_cross_talk(c3, r)
@@ -65,7 +70,8 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     #a.align_unique_only(c3, r)
     
     
-    c4 = cluster.AaClusters()
+    #c4 = cluster.AaClusters()
+    c4 = cluster.DnaClusters()
     c4.set_read_region(70,232)
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
     a.align(c4, r)
@@ -81,6 +87,68 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     
     #rank them
     results = rank_by_cross_division(topHits)
+    
+    
+    #debug code
+    #grab top hit
+    topHitNames = set()
+    for entry in sorted(results, key=results.get, reverse=True):
+        name = entry
+        score = results[entry]
+        print name, score
+        if len(topHitNames)==0:
+            topHitNames.add(name)
+            break
+        
+    #realign
+    realigner = align.DnaAligner()
+    realigner.align(c1,r, topHitNames)
+    realigner.align(c2,r, topHitNames)
+    realigner.align(c3,r, topHitNames)
+    realigner.align(c4,r, topHitNames)
+    realigner.compile_results()
+    topHits = pick_Nx(realigner.get_results(),30)
+    results = rank_by_cross_division(topHits)
+    
+    no1Hit = ""
+    no2Hit = ""
+    #grab top hit again
+    topHitNames = set()
+    for entry in sorted(results, key=results.get, reverse=True):
+        name = entry
+        score = results[entry]
+        print name, score
+        if len(topHitNames)==0:
+            topHitNames.add(name)
+            no2Hit = name
+            break
+        
+    #realign
+    realigner = align.DnaAligner()
+    realigner.align(c1,r, topHitNames)
+    realigner.align(c2,r, topHitNames)
+    realigner.align(c3,r, topHitNames)
+    realigner.align(c4,r, topHitNames)
+    realigner.compile_results()
+    topHits = pick_Nx(realigner.get_results(),30)
+    results = rank_by_cross_division(topHits)
+    
+     #grab top hit again
+    topHitNames = set()
+    for entry in sorted(results, key=results.get, reverse=True):
+        name = entry
+        score = results[entry]
+        print name, score
+        if len(topHitNames)==0:
+            topHitNames.add(name)
+            no1Hit = name
+            break
+        
+    print
+    print "_____________"
+    print "1: %s\n2: %s"%(no1Hit,no2Hit)
+
+    
     
         
 

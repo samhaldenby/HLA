@@ -14,3 +14,11 @@ def translate_3_frames(seq):
         dna=Seq(seq[p:].strip(),generic_dna)
         translations.append(dna.translate().tostring())
     return translations
+
+
+
+def shorten_name(name): 
+    #trim down geneName
+    colonSplit = name.split(":")
+    shorterName = "%s:%s"%(colonSplit[0],colonSplit[1]) 
+    return shorterName

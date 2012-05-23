@@ -71,11 +71,23 @@ class DnaReference(Reference):
             if len(entrySplit)==2:
                 name = entrySplit[0]
                 sequence = entrySplit[1]
-                self._refs[name] = sequence
+                
+                #abbreviate name and add 
+                shorterName = shorten_name(name)
+                
+                if shorterName not in self._refs:
+                    self._refs[shorterName] = []
+                self._refs[shorterName].append(sequence)
+                
+                    
+                     
         
         #clean up
         logging.info('Loaded %d reference sequences',len(self._refs))
         refFile.close()
+        
+     
+            
         
         
         
@@ -110,10 +122,8 @@ class AaReference(Reference):
                 sequence = entrySplit[1]
                 translations = translate_3_frames(sequence)
                 
-                #trim down geneName
-                colonSplit = name.split(":")
-                shorterName = "%s:%s"%(colonSplit[0],colonSplit[1]) 
-                
+                #shorten name
+                shorterName = shorten_name(name)
                 #debugging code
                 if shorterName in self._refs:
                     #compare translations to ensure they're the same

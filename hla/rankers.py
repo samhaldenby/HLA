@@ -79,7 +79,7 @@ def rank_by_cross_division(results):
             Nothing. It probably should though!
     """    
     
-    logging.info('logging_by_cross_division: Ranking %d results',len(results))
+    logging.info('rank_by_cross_division: Ranking %d results',len(results))
     
     
     #Manipulate data into 4 lists of dicts{geneName: countForThatRead}
