@@ -10,6 +10,8 @@ Created on 17 May 2012
 class Aligner(object):
     '''
     for carrying out alignments and storing subsequent data.
+    
+    NB: This is an abstract base class. Use either DnaAligner or AaAligner
     '''
     _counts = {}#{clusterName : {targetName:hitCount} }
     _results = {}#{targetName:[hits,hits.....hits]}
@@ -26,43 +28,7 @@ class Aligner(object):
         return:
             Nothing
         '''
-        
-        logging.info('Aligning %d clusters from %s to %d references',len(clusters.get_clusters()), clusters.name, len(refs.get_references()))
-        
-        #prepare variables
-        geneHitsForCluster = {}
-        
-        queryClusters = clusters.get_clusters()
-        #For each cluster of reads, see if they match any reference sequences
-        
-
-        for cluster in queryClusters.items():
-            querySeq = cluster[0]
-            queryCount = cluster[1]
-            hitTargets = []
-            for ref in refs.get_references().items():
-                refName = ref[0]
-                refSeq = ref[1]
-                
-                #keep track of references hit by this cluster
-                if querySeq in refSeq:
-                    hitTargets.append(refName)
-                    
-            #now recalibrate score based on number of genes hit
-            #If a cluster only hits one target, that has more weight than if a cluster hits 50 reference targets
-            if len(hitTargets) > 0:
-                score = 1.0/math.log10(len(hitTargets)+1) 
-               # score = 1.0/(len(hitTargets)*1.0)
-                score *= queryCount #also weight by number of reads in cluster
-                for target in hitTargets:
-                    if target not in geneHitsForCluster:
-                        geneHitsForCluster[target] =score
-                    else:
-                        geneHitsForCluster[target]+=score
-        
-        #add to _counts
-        self._counts[clusters.name] = geneHitsForCluster
-    
+        raise NotImplementedError("Subclasses are responsible for creating this method")
     
     
     def calculate_alignment_cross_talk(self,clusters,refs):
@@ -335,6 +301,126 @@ class Aligner(object):
         '''
         return self._results
     
+    
+    
+    
+    
+    
+    
+class DnaAligner(Aligner):
+    '''
+    for carrying out alignments and storing subsequent data.
+    '''
+    
+    
+    def align(self,clusters,refs):
+        '''
+        derives hits from clusters to references
+        
+        args:
+            clusters    Clusters class object
+            references  Reference class object
+        
+        return:
+            Nothing
+        '''
+        
+        logging.info('Aligning %d clusters from %s to %d references',len(clusters.get_clusters()), clusters.name, len(refs.get_references()))
+        
+        #prepare variables
+        geneHitsForCluster = {}
+        
+        queryClusters = clusters.get_clusters()
+        #For each cluster of reads, see if they match any reference sequences
+        
+
+        for cluster in queryClusters.items():
+            querySeq = cluster[0]
+            queryCount = cluster[1]
+            hitTargets = []
+            for ref in refs.get_references().items():
+                refName = ref[0]
+                refSeq = ref[1]
+                
+                #keep track of references hit by this cluster
+                if querySeq in refSeq:
+                    hitTargets.append(refName)
+                    
+            #now recalibrate score based on number of genes hit
+            #If a cluster only hits one target, that has more weight than if a cluster hits 50 reference targets
+            if len(hitTargets) > 0:
+                score = 1.0/math.log10(len(hitTargets)+1) 
+               # score = 1.0/(len(hitTargets)*1.0)
+                score *= queryCount #also weight by number of reads in cluster
+                for target in hitTargets:
+                    if target not in geneHitsForCluster:
+                        geneHitsForCluster[target] =score
+                    else:
+                        geneHitsForCluster[target]+=score
+        
+        #add to _counts
+        self._counts[clusters.name] = geneHitsForCluster
+        
+        
+        
+        
+        
+class AaAligner(Aligner):
+    '''
+    for carrying out alignments of translated data and storing subsequent data.
+    '''
+    
+    
+    def align(self,clusters,refs):
+        '''
+        derives hits from clusters to references
+        
+        args:
+            clusters    Clusters class object
+            references  Reference class object
+        
+        return:
+            Nothing
+        '''
+        
+        logging.info('Aligning %d translated clusters from %s to %d translated references',len(clusters.get_clusters()), clusters.name, len(refs.get_references()))
+        
+        #prepare variables
+        geneHitsForCluster = {}
+        
+        queryClusters = clusters.get_clusters()
+        #For each cluster of reads, see if they match any reference sequences
+        
+
+        for cluster in queryClusters.items():
+            querySeq = cluster[0]
+            queryCount = cluster[1]
+            hitTargets = []
+            for ref in refs.get_references().items():
+                refName = ref[0]
+                refTranslations = ref[1]
+                
+                #keep track of references hit by this cluster
+                for refTranslation in refTranslations:
+                    
+                    if querySeq in refTranslation:
+                        hitTargets.append(refName)
+                    
+            #now recalibrate score based on number of genes hit
+            #If a cluster only hits one target, that has more weight than if a cluster hits 50 reference targets
+            if len(hitTargets) > 0:
+                score = 1.0/math.log10(len(hitTargets)+1) 
+               # score = 1.0/(len(hitTargets)*1.0)
+                score *= queryCount #also weight by number of reads in cluster
+                for target in hitTargets:
+                    if target not in geneHitsForCluster:
+                        geneHitsForCluster[target] =score
+                    else:
+                        geneHitsForCluster[target]+=score
+        
+        #add to _counts
+        self._counts[clusters.name] = geneHitsForCluster
+
     
     
     

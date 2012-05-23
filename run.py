@@ -33,12 +33,12 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     wellPath="%s/%s/"%(inputPath, wellId)
     
     #load references
-    r = reference.Reference()
+    r = reference.AaReference()
     r.load_reference_tabbed(referenceName)#("/home/sh695/Documents/Scripts/PythonScripts/HLA/modules/subject.txt")
 
 
     #create aligner
-    a = align.Aligner()
+    a = align.AaAligner()
     
     #load reads into clusters 
     c1 = cluster.AaClusters()
@@ -49,14 +49,14 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
 
     
     
-    c2 = cluster.DnaClusters()
+    c2 = cluster.AaClusters()
     c2.set_read_region(0,150)
     c2.load_from_fq("%s2_4_F.fq"%wellPath)
     a.align(c2, r)
     #a.align_unique_only(c2, r)
     
     
-    c3 = cluster.DnaClusters()
+    c3 = cluster.AaClusters()
     c3.set_read_region(33,200)
     c3.load_from_fq("%s2_4_R.fq"%wellPath)
     #a.calculate_alignment_cross_talk(c3, r)
@@ -65,7 +65,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     #a.align_unique_only(c3, r)
     
     
-    c4 = cluster.DnaClusters()
+    c4 = cluster.AaClusters()
     c4.set_read_region(70,232)
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
     a.align(c4, r)
