@@ -327,7 +327,7 @@ class DnaAligner(Aligner):
         '''
 
         
-        logging.info('Aligning %d clusters from %s to %d references',len(clusters.get_clusters()), clusters.name, len(refs.get_references()))
+        logging.info('Aligning %d clusters from %s to %d references, omitting reads hitting %s',len(clusters.get_clusters()), clusters.name, len(refs.get_references()), omitHitsTo)
         
         #prepare variables
         geneHitsForCluster = {}

@@ -9,6 +9,10 @@ from optparse import OptionParser
 
 ###NOTES
 # 1 - The program has trouble in detecting 0408/0901....is this a primer issue? Compare 04XX with 0408 and see
+#Current changes: 
+#    1) 1 point per read hit - no dividing if ambiguous
+#    2) Everything else normalish? Don't forget iterative approach is included though!
+#    3) Appears that ranking by cross division is not being carried out, i.e. not multiplying by rankings. Check this by changing N30 to N50+
 def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResults=None):
     '''
     Main function for running hla analysis
@@ -91,12 +95,15 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     
     #debug code
     #grab top hit
+    no1Hit = ""
+    no2Hit = ""
     topHitNames = set()
     for entry in sorted(results, key=results.get, reverse=True):
         name = entry
         score = results[entry]
         print name, score
         if len(topHitNames)==0:
+            no1Hit = name
             topHitNames.add(name)
             break
         
@@ -110,8 +117,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     topHits = pick_Nx(realigner.get_results(),30)
     results = rank_by_cross_division(topHits)
     
-    no1Hit = ""
-    no2Hit = ""
+
     #grab top hit again
     topHitNames = set()
     for entry in sorted(results, key=results.get, reverse=True):
@@ -124,6 +130,8 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
             break
         
     #realign
+    topHitNames.add(no1Hit)
+    topHitNames.add(no2Hit)
     realigner = align.DnaAligner()
     realigner.align(c1,r, topHitNames)
     realigner.align(c2,r, topHitNames)
@@ -141,7 +149,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         print name, score
         if len(topHitNames)==0:
             topHitNames.add(name)
-            no1Hit = name
+          #  no1Hit = name
             break
         
     print

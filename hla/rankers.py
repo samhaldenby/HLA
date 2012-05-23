@@ -173,7 +173,7 @@ def rank_by_cross_division(results):
         newIdeaScore = newIdeaScore/(1+misses)
         calibratedScore = calibratedScore / missModifier
         #TODO this was original = 141
-#        newScoreMap[name]=newIdeaScore
+        newScoreMap[name]=newIdeaScore
         #END 
         
         
