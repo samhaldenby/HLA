@@ -109,7 +109,22 @@ class AaReference(Reference):
                 name = entrySplit[0]
                 sequence = entrySplit[1]
                 translations = translate_3_frames(sequence)
-                self._refs[name] = translations
+                
+                #trim down geneName
+                colonSplit = name.split(":")
+                shorterName = "%s:%s"%(colonSplit[0],colonSplit[1]) 
+                
+                #debugging code
+                if shorterName in self._refs:
+                    #compare translations to ensure they're the same
+                    matches = 0
+                    for q in translations:
+                        for r in self._refs[shorterName]:
+                            if q in r or r in q:
+                                matches+=1
+                    print "%s -> %s already exists! %d translations match"%(name, shorterName, matches)
+                    
+                self._refs[shorterName] = translations
         
         #clean up
         logging.info('Loaded %d reference sequences',len(self._refs))
