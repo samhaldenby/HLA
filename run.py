@@ -45,6 +45,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     c1.set_read_region(0,160)
     c1.load_from_fq("%s2_2_F.fq"%wellPath)
     a.align(c1, r)
+    #a.align_unique_only(c1, r)
 
     
     
@@ -52,25 +53,30 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     c2.set_read_region(0,150)
     c2.load_from_fq("%s2_4_F.fq"%wellPath)
     a.align(c2, r)
+    #a.align_unique_only(c2, r)
     
     
     c3 = cluster.Clusters()
     c3.set_read_region(33,200)
     c3.load_from_fq("%s2_4_R.fq"%wellPath)
+    #a.calculate_alignment_cross_talk(c3, r)
+    #raw_input("Press key")
     a.align(c3, r)
+    #a.align_unique_only(c3, r)
     
     
     c4 = cluster.Clusters()
     c4.set_read_region(70,232)
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
     a.align(c4, r)
+    #a.align_unique_only(c4, r)
 
    
     a.compile_results()
 
 
     #grab top results
-    topHits = pick_Nx(a.get_results(),30)
+    topHits = pick_Nx(a.get_results(),50)   #TODO: Change this back to 50
 
     
     #rank them

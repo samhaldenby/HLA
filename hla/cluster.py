@@ -81,8 +81,6 @@ class Clusters:
                 else:
                     self._clusters[sequence] +=1
        
-        #calculate normalised clusters
-        self._calculate_normalised_clusters()
         
         #clean-up
         fqFile.close()
