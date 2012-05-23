@@ -8,7 +8,7 @@ from hla.validation import *
 from optparse import OptionParser
 
 ###NOTES
-# 1 - The program has trouble in detecting 0408....is this a primer issue? Compare 04XX with 0408 and see
+# 1 - The program has trouble in detecting 0408/0901....is this a primer issue? Compare 04XX with 0408 and see
 def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResults=None):
     '''
     Main function for running hla analysis
@@ -41,7 +41,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a = align.Aligner()
     
     #load reads into clusters 
-    c1 = cluster.Clusters()
+    c1 = cluster.AaClusters()
     c1.set_read_region(0,160)
     c1.load_from_fq("%s2_2_F.fq"%wellPath)
     a.align(c1, r)
@@ -49,14 +49,14 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
 
     
     
-    c2 = cluster.Clusters()
+    c2 = cluster.DnaClusters()
     c2.set_read_region(0,150)
     c2.load_from_fq("%s2_4_F.fq"%wellPath)
     a.align(c2, r)
     #a.align_unique_only(c2, r)
     
     
-    c3 = cluster.Clusters()
+    c3 = cluster.DnaClusters()
     c3.set_read_region(33,200)
     c3.load_from_fq("%s2_4_R.fq"%wellPath)
     #a.calculate_alignment_cross_talk(c3, r)
@@ -65,7 +65,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     #a.align_unique_only(c3, r)
     
     
-    c4 = cluster.Clusters()
+    c4 = cluster.DnaClusters()
     c4.set_read_region(70,232)
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
     a.align(c4, r)
