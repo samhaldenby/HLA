@@ -76,7 +76,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
 
 
     #grab top results
-    topHits = pick_Nx(a.get_results(),50)   #TODO: Change this back to 50
+    topHits = pick_Nx(a.get_results(),30)   #TODO: Change this back to 50
 
     
     #rank them

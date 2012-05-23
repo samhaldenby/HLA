@@ -51,8 +51,8 @@ class Aligner(object):
             #now recalibrate score based on number of genes hit
             #If a cluster only hits one target, that has more weight than if a cluster hits 50 reference targets
             if len(hitTargets) > 0:
-                #score = 1.0/math.log10(len(hitTargets)+1) TODO : Restore this!
-                score = 1.0/(len(hitTargets)*1.0)
+                score = 1.0/math.log10(len(hitTargets)+1) 
+               # score = 1.0/(len(hitTargets)*1.0)
                 score *= queryCount #also weight by number of reads in cluster
                 for target in hitTargets:
                     if target not in geneHitsForCluster:
