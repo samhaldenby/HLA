@@ -15,6 +15,8 @@ from optparse import OptionParser
 #    3) Appears that ranking by cross division is not being carried out, i.e. not multiplying by rankings. Check this by changing N30 to N50+
 #        3a) Trying this now - Done! Makes no difference!
 def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResults=None):
+   
+    print "DynalResults: ", dynalResults
     '''
     Main function for running hla analysis
     
@@ -72,17 +74,19 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     #grab top results
     topHits = pick_Nx(a.get_results(),nX)   #TODO: Change this back to 50
 
+    #prepare list of results
+    results =[]
     #rank them
-    results1 = rank_by_cross_division(topHits)
+    results.append(rank_by_cross_division(topHits))
     
 
     openList = []
     topHitNames = set()
     
     #grab top 2 hits and add to open list
-    for entry in sorted(results1, key=results1.get, reverse=True):
+    for entry in sorted(results[-1], key=results[-1].get, reverse=True):
         name = entry
-        score = results1[entry]
+        score = results[-1][entry]
         print name, score
         if len(topHitNames)<2:
             openList.append(name)
@@ -102,12 +106,12 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c4,r, openList[0])
     a.compile_results()
     topHits = pick_Nx(a.get_results(),nX)
-    results2_1 = rank_by_cross_division(topHits)
+    results.append(rank_by_cross_division(topHits))
     #now see if there is a new top hit not already on open list
     firstLine = True
-    for entry in sorted(results2_1, key=results2_1.get, reverse=True):
+    for entry in sorted(results[-1], key=results[-1].get, reverse=True):
         name = entry
-        score = results2_1[entry]
+        score = results[-1][entry]
         if firstLine:
             if name not in openList:
                 print "%s is new top hit. Not already in open list. Adding"%name
@@ -129,12 +133,12 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c4,r, openList[1])
     a.compile_results()
     topHits = pick_Nx(a.get_results(),nX)
-    results2_2 = rank_by_cross_division(topHits)
+    results.append(rank_by_cross_division(topHits))
     #now see if there is a new top hit not already on open list
     firstLine = True
-    for entry in sorted(results2_2, key=results2_2.get, reverse=True):
+    for entry in sorted(results[-1], key=results[-1].get, reverse=True):
         name = entry
-        score = results2_2[entry]
+        score = results[-1][entry]
         if firstLine:
            # print "WE ARE NOW CHECKING IF %s IS ON OPEN LIST %s"%(name,openList)
             if name not in openList:
@@ -160,19 +164,132 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         a.align(c4,r, openList[len(openList)-remainingToCheck])
         a.compile_results()
         topHits = pick_Nx(a.get_results(),nX)
-        finalResults.append(rank_by_cross_division(topHits))
+        results.append(rank_by_cross_division(topHits))
+        
         #now see if there is a new top hit not already on open list
         
         print "Open list after run2, omiting #%d from open list (%s)"%(len(openList)-remainingToCheck, openList[len(openList)-remainingToCheck])
         
         remainingToCheck -= 1
         
-  
         
+    print ">> *** %s ***"%wellId
+    modifiedResults = process_all_results(results, openList)
     
+    #comparing to dynal results? 
+    if dynalResults != None:
+        compare_with_dynal(modifiedResults, wellId, dynalResults)
+
+   
+    print ">> _______________"
         
+
+def process_all_results(results, openList):
+    #create map
+    scores = {}
+    originalScores = {}
+    for gene in openList:
+        scores[gene]=[]
+        for result in results:
+            if gene in result:  #i.e. if it's not the one being omited, OR!!! if it got no hits.... deal with this later TODO:
+                scores[gene].append(result[gene])
+                if gene not in originalScores:
+                    originalScores[gene]= result[gene]
+
     
+    #now, make sure all modifier lists are same length (reason they might not be is due to getting 0 hits)
+    longestList = 0
+    print "PADDING OUT NOW"
+    for s in scores.items():
+        print s[0],"len(s)=",len(s[1]),"longestList=",longestList
+        if len(s[1]) > longestList:
+            print "LongestList = ", len(s[1])
+            longestList = len(s[1])
+        
+    for s in scores.items():
+        print s[0],len(s[1])
+        while len(s[1]) < longestList:
+            print "appending"
+            s[1].append(0.0)
+        print s[0],len(s[1])
+    print "______GGGG____"
+            
+                    
+
+                    
+            
+            
+    #for entry in scores.items():
+    #    print entry[0],entry[1]
+        
+    #for entry in originalScores.items():
+    #    print entry[0],entry[1]
+        
+    #create modifiers
+    #print "Creating modifiers"
+    modifiers = {}
+    for entry in scores.items():
+        #print "scores.items():",entry[0],entry[1]
+        gene = entry[0]
+        modifiers[gene]=[]
+
+        for result in entry[1]:
+            modifiers[gene].append(result/originalScores[gene])
+  #          print result
+  #          print "originalScores[%s]="%(gene)
+  #          print originalScores[gene]
+  #          print "modifiers[%s]="%(gene)
+  #          print modifiers[gene]
+
     
+   # for entry in modifiers.items():
+   #     print entry[0],entry[1]
+        
+    #multiply all modifiers by all scores
+    modifiedScores = {}
+    unmodifiedScores = {}
+    #for each gene
+    for entry in scores.items():
+        thisScore = 1.0
+        unmodifiedThisScore = 1.0
+        geneName = entry[0]
+        geneScores = entry[1]
+        #multiply all scores
+        for s in geneScores:
+            thisScore *= s
+            if s>1:
+                unmodifiedThisScore *=s
+        #mow multiply by modifiers
+        
+
+        for m in modifiers[geneName]:
+            thisScore *= m
+        
+        #log it
+        if unmodifiedThisScore > 0:
+            unmodifiedThisScore = math.log10(unmodifiedThisScore)
+        if thisScore >0:
+            thisScore = math.log10(thisScore)
+        #divide by number of top hits
+        thisScore /= len(scores)
+        unmodifiedThisScore /=len(scores)
+        modifiedScores[geneName] = thisScore
+        unmodifiedScores[geneName] = unmodifiedThisScore
+    
+
+    
+    for entry in sorted(modifiedScores, key=modifiedScores.get, reverse=True):
+        thisScore = modifiedScores[entry]
+        status =""
+        if thisScore >3:
+            status = "PASS"
+        elif thisScore >2.5:
+            status = "UNSURE"
+        else:
+            status = "FAIL"
+        print ">>",entry, modifiedScores[entry], unmodifiedScores[entry],status
+            
+    return modifiedScores
 
 #    #grab top hit again
 #    topHitNames = set()
@@ -217,12 +334,11 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         
 
     
-    #comparing to dynal results? 
-    if dynalResults != None:
-        compare_with_dynal(results, wellId, dynalResults)
+   
 
 
 #Parse command line options
+
 parser = OptionParser()
 parser.add_option("-R", "--reference", dest="referenceName", action="store", help="tab-separated (name seq) reference file name", metavar="FILE")
 parser.add_option("-d", "--inputPath", dest="inputPath", action="store", help="path to directory containing well directories, e.g. /data/A04/MiSeq/", metavar="PATH")
@@ -232,7 +348,7 @@ parser.add_option("-o", "--output", dest="outputTag", help="output file tag", me
 parser.add_option("-r", "--dynal-results", dest="dynalResults", help="Previous dynal results to compare results to", metavar="FILE")
 (options,args) = parser.parse_args()
 
-
+print "Options.dynalResults: ",options.dynalResults
 run_analysis(referenceName=options.referenceName, inputPath=options.inputPath, wellId=options.wellId, logTag=options.logTag, outputTag=options.outputTag, dynalResults=options.dynalResults)
 
 

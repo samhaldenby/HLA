@@ -33,7 +33,7 @@ def compare_with_dynal(results, wellId, dynalFileName):
     dynalResults = set()
     dynalResults.add(firstDynalHit)
     dynalResults.add(secondDynalHit)
-    print dynalResults
+    print ">>",dynalResults
     
     
     #compile these results
@@ -50,12 +50,12 @@ def compare_with_dynal(results, wellId, dynalFileName):
             
             if modifiedName in dynalResults:
                 score+=1
-                print "%s\tYes"%modifiedName
+                print ">> %s\tYes"%modifiedName
             else:
-                print "%s\tNo"%modifiedName
+                print ">> %s\tNo"%modifiedName
         top2+=1
         
-    print "Score:\t\t\t\t\t\t\t\t\t%d"% score
+    print ">> Score:\t\t\t\t\t\t\t\t\t%d"% score
         
     
     
