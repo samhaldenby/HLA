@@ -23,6 +23,8 @@ class Reference(object):
     def load_reference_tabbed(self, refName):
         '''
         load references from a tab delimited file. First column is gene name, second column is sequence
+        
+        saves the reference data in dict of type {sequence : count}
         '''
         raise NotImplementedError("Subclasses are responsible for creating this method")
         
@@ -132,7 +134,7 @@ class AaReference(Reference):
                         for r in self._refs[shorterName]:
                             if q in r or r in q:
                                 matches+=1
-                    print "%s -> %s already exists! %d translations match"%(name, shorterName, matches)
+                   # print "%s -> %s already exists! %d translations match"%(name, shorterName, matches)
                     
                 self._refs[shorterName] = translations
         

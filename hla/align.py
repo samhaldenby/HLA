@@ -34,215 +34,7 @@ class Aligner(object):
         raise NotImplementedError("Subclasses are responsible for creating this method")
     
     
-    def calculate_alignment_cross_talk(self,clusters,refs):
-        '''
-        generates a grid of geneName x geneName and shows number of reads that map to each
-        e.g.
-        
-            g1    g2    g3    g4
-        g1  x     0     10    0
-        g2  0     x     25    5
-        g3  10    25    x     0
-        g4  0     5     0     x
-        
-        args:
-            clusters    Clusters class object
-            references  Reference class object
-        
-        return:
-            grid
-        '''
-        logging.info('Calculating cross-talk')
-        
-        #prepare variables
-        geneHitsForCluster = {}
-        
-        queryClusters = clusters.get_clusters()
-        allHitTargets = set()
-        
-        #find out what genes are mapped to
-        for cluster in queryClusters.items():
-            querySeq = cluster[0]
-            queryCount = cluster[1]
-            for ref in refs.get_references().items():
-                refName = ref[0]
-                refSeq = ref[1]
-                
-                #keep track of references hit by this cluster
-                if querySeq in refSeq:
-                    allHitTargets.add(refName)
-                    
-        
-        
-        #assign a keyId to each gene name
-        idToNameDict = {}
-        nameToIdDict = {}
-        
-        currId = 0
-        print allHitTargets
-        
-        for ref in allHitTargets:
-            print ref,currId
-            idToNameDict[currId] = ref
-            nameToIdDict[ref] = currId
-            currId+=1
-
-        
-        #generate a grid
-        grid = []
-        for y in range(0,len(allHitTargets)):
-            grid.append([])
-            for x in range(0,len(allHitTargets)):
-                grid[y].append(0.0)
-    #    grid =[[0.0]*len(allHitTargets)]*len(allHitTargets)
-        print grid
-        print "Number of targets hit by these clusters: %d"%len(allHitTargets)
-        
-        totScore =0
-        #For each cluster of reads, see if they match any reference sequences
-        for cluster in queryClusters.items():
-            querySeq = cluster[0]
-            queryCount = cluster[1]
-            hitTargets = []
-            for ref in refs.get_references().items():
-                refName = ref[0]
-                refSeq = ref[1]
-                
-                #keep track of references hit by this cluster
-                if querySeq in refSeq:
-                    hitTargets.append(nameToIdDict[refName])
-        
-            #add data to grid
-            
-            for first in range (0,len(hitTargets)):
-                for second in range(0,len(hitTargets)):
-                    if first!=second:
-                        grid[hitTargets[first]][hitTargets[second]]+=queryCount
-                        grid[hitTargets[second]][hitTargets[first]]+=queryCount
-                        print "[%d][%d]+=%.2f"%(hitTargets[first], hitTargets[second],queryCount)
-            if len(hitTargets)==1:
-                grid[hitTargets[0]][hitTargets[0]]+=1000*queryCount
-                print "SAME:%d"%hitTargets[first]
-        #    for hit1 in hitTargets:
-        #        for hit2 in hitTargets:
-        #            if hit1!=hit2:
-        #                grid[hit1][hit2]+=queryCount
-            
-            totScore+=queryCount
-            if len(hitTargets) >1:
-                raw_input("round complete")
-            print totScore
-            
-        print grid
-        
-        outFile = open("grid2.txt","w")
-        #print header
-        outFile.write("\t")
-        for head in range(0,len(allHitTargets)):
-            outFile.write("%s\t"%idToNameDict[head])
-        outFile.write("\n")
-        
-        for y in range(0,len(allHitTargets)):
-            outFile.write("%s\t"%idToNameDict[y])
-            for x in range(0,len(allHitTargets)):
-                outFile.write("%d\t"%grid[y][x])
-            outFile.write("\n")
-        outFile.close()
-        raw_input("Written grid to file")
-                    
-        
-        
-
-        for cluster in queryClusters.items():
-            querySeq = cluster[0]
-            queryCount = cluster[1]
-            hitTargets = []
-            for ref in refs.get_references().items():
-                refName = ref[0]
-                refSeq = ref[1]
-                
-                #keep track of references hit by this cluster
-                if querySeq in refSeq:
-                    hitTargets.append(refName)
-                    
-            #now recalibrate score based on number of genes hit
-            #If a cluster only hits one target, that has more weight than if a cluster hits 50 reference targets
-            if len(hitTargets) > 0:
-                score = 1.0/math.log((len(hitTargets)+1) , 10)
-                score *= queryCount #also weight by number of reads in cluster
-                for target in hitTargets:
-                    if target not in geneHitsForCluster:
-                        geneHitsForCluster[target] =score
-                    else:
-                        geneHitsForCluster[target]+=score
-        
-        #add to _counts
-        self._counts[clusters.name] = geneHitsForCluster
-        
-        
-        
-        
-    def align_unique_only(self,clusters,refs):
-        '''
-        derives hits from clusters to references, BUT only accepting hits which only hit one target
-        It's total crap. So few reads are actually uniquely mapping to one target there's no point
-        It biases heavily against all but a few HLAs
-        
-        args:
-            clusters    Clusters class object
-            references  Reference class object
-        
-        return:
-            Nothing
-        '''
-        
-        logging.info('Aligning %d clusters from %s to %d references',len(clusters.get_clusters()), clusters.name, len(refs.get_references()))
-        
-        #prepare variables
-        geneHitsForCluster = {}
-        
-        queryClusters = clusters.get_clusters()
-        #For each cluster of reads, see if they match any reference sequences
-        
-
-        for cluster in queryClusters.items():
-            querySeq = cluster[0]
-            queryCount = cluster[1]
-            hitTargets = []
-            for ref in refs.get_references().items():
-                refName = ref[0]
-                refSeq = ref[1]
-                
-                #keep track of references hit by this cluster
-                if querySeq in refSeq:
-                    hitTargets.append(refName)
-                    
-            #only accept it unique
-            if len(hitTargets) == 1:
-                score = queryCount 
-                for target in hitTargets:
-                    if target not in geneHitsForCluster:
-                        geneHitsForCluster[target] =score
-                    else:
-                        geneHitsForCluster[target]+=score
-        
-        #add to _counts
-        self._counts[clusters.name] = geneHitsForCluster
-   
-        
     
-    def print_counts(self):
-        '''
-        print results out. Use only after compile results
-        '''
-        for dataSet in self._counts.items():
-            readName = dataSet[0]
-            for entry in self._counts[readName].items():
-                print readName,entry[0],entry[1]
-                
-                
-                
-                
     def compile_results(self):
         '''
         once all alignments have been carried out, do this.
@@ -312,8 +104,34 @@ class Aligner(object):
     
 class DnaAligner(Aligner):
     '''
-    for carrying out alignments and storing subsequent data.
+    for carrying out nucleotide alignments and storing subsequent data.
     '''
+    
+    
+    def _calc_hits_against_ref(self, query, references):
+        '''
+        takes a query sequence and Reference class and calculates the targets that the query sequence hits
+        
+        args:
+            query    DNA sequence string
+            references    filled instance of Reference class
+            
+        returns:
+            set of reference sequence names that the query maps to
+        '''
+        
+        hitTargets = set()
+        for ref in references.get_references().items():
+            refName = ref[0]
+            refSeqs = ref[1]
+                
+            for refSeq in refSeqs:
+                if query in refSeq:
+                    hitTargets.add(refName)
+                    
+        return hitTargets
+    
+    
     
     
     def align(self,clusters,refs,omitHitsTo = set()):
@@ -330,52 +148,37 @@ class DnaAligner(Aligner):
         logging.info('Aligning %d clusters from %s to %d references, omitting reads hitting %s',len(clusters.get_clusters()), clusters.name, len(refs.get_references()), omitHitsTo)
         
         #prepare variables
-        geneHitsForCluster = {}
-        
+        referenceHitCounts = {} #{referenceSequenceName : hitCount}
         queryClusters = clusters.get_clusters()
-        #For each cluster of reads, see if they match any reference sequences
         
-
+        #For each cluster of reads, see if they match any reference sequences
         for cluster in queryClusters.items():
             querySeq = cluster[0]
             queryCount = cluster[1]
-            hitTargets = set()
             
-            for ref in refs.get_references().items():
-                refName = ref[0]
-                refSeqs = ref[1]
-                
-                for refSeq in refSeqs:
-                
-                    #keep track of references hit by this cluster
-                    if querySeq in refSeq:
-                        hitTargets.add(refName)
-                    
-            #now recalibrate score based on number of genes hit
-            #If a cluster only hits one target, that has more weight than if a cluster hits 50 reference targets
+            #get a set of all targets that this cluster hits
+            hitTargets = self._calc_hits_against_ref(query=querySeq, references=refs)
+            
+            
             if len(hitTargets) > 0:
-                
-                #check that it doesn't map to any of the omitHitTo set
-                discard = False
+                #check that it doesn't map to any of the omitHitTo set. If it does, chuck the cluster away
+                keepCluster = True
                 for target in hitTargets:
                     if target in omitHitsTo:
-                        discard = True
+                        keepCluster = False
                         break
                 
-                if discard == False:
-                    score = 1.0/math.log10(len(hitTargets)+1) 
-                    score = 1.0
-                   # score = 1.0/(len(hitTargets)+1)
-                   # score = 1.0/(len(hitTargets)*1.0)
-                    score *= queryCount #also weight by number of reads in cluster
+                #if all ok, add hits to each hit target   
+                if keepCluster:
+                    score = queryCount #1 hit per read in cluster
                     for target in hitTargets:
-                        if target not in geneHitsForCluster:
-                            geneHitsForCluster[target] =score
+                        if target not in referenceHitCounts:
+                            referenceHitCounts[target] =score
                         else:
-                            geneHitsForCluster[target]+=score
+                            referenceHitCounts[target]+=score
         
         #add to _counts
-        self._counts[clusters.name] = geneHitsForCluster
+        self._counts[clusters.name] = referenceHitCounts
         
         
         
@@ -387,7 +190,7 @@ class AaAligner(Aligner):
     '''
     
     
-    def align(self,clusters,refs):
+    def align(self,clusters,refs,  omitHitsTo = set()):
         '''
         derives hits from clusters to references
         
@@ -425,14 +228,23 @@ class AaAligner(Aligner):
             #now recalibrate score based on number of genes hit
             #If a cluster only hits one target, that has more weight than if a cluster hits 50 reference targets
             if len(hitTargets) > 0:
-                score = 1.0/math.log10(len(hitTargets)+1) 
-               # score = 1.0/(len(hitTargets)*1.0)
-                score *= queryCount #also weight by number of reads in cluster
+                #check that it doesn't map to any of the omitHitTo set. If it does, chuck the cluster away
+                keepCluster = True
                 for target in hitTargets:
-                    if target not in geneHitsForCluster:
-                        geneHitsForCluster[target] =score
-                    else:
-                        geneHitsForCluster[target]+=score
+                    if target in omitHitsTo:
+                        keepCluster = False
+                        break
+                
+                #if all ok, add hits to each hit target   
+                if keepCluster:
+                    score = queryCount
+                   # score = 1.0/(len(hitTargets)*1.0)
+                    #score *= queryCount #also weight by number of reads in cluster
+                    for target in hitTargets:
+                        if target not in geneHitsForCluster:
+                            geneHitsForCluster[target] =score
+                        else:
+                            geneHitsForCluster[target]+=score
         
         #add to _counts
         self._counts[clusters.name] = geneHitsForCluster

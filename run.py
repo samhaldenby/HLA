@@ -5,7 +5,9 @@ import hla.align as align
 from hla.top_pickers import *
 from hla.rankers import *
 from hla.validation import *
+import hla.contaminants as contam
 from optparse import OptionParser
+import sys
 
 ###NOTES
 # 1 - The program has trouble in detecting 0408/0901....is this a primer issue? Compare 04XX with 0408 and see
@@ -16,7 +18,6 @@ from optparse import OptionParser
 #        3a) Trying this now - Done! Makes no difference!
 def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResults=None):
    
-    print "DynalResults: ", dynalResults
     '''
     Main function for running hla analysis
     
@@ -49,27 +50,36 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
 
 
     #load FQs into clusters
-    c1 = cluster.DnaClusters()
+    c1 = cluster.AaClusters()
     c1.set_read_region(0,160)
     c1.load_from_fq("%s2_2_F.fq"%wellPath)
-    c2 = cluster.DnaClusters()
+    c2 = cluster.AaClusters()
     c2.set_read_region(0,150)
     c2.load_from_fq("%s2_4_F.fq"%wellPath)
-    c3 = cluster.DnaClusters()
+    c3 = cluster.AaClusters()
     c3.set_read_region(33,200)
     c3.load_from_fq("%s2_4_R.fq"%wellPath)
-    c4 = cluster.DnaClusters()
+    c4 = cluster.AaClusters()
     c4.set_read_region(70,232)
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
    
    
     #create aligner and do initial alignment
-    a = align.DnaAligner()
+    a = align.AaAligner()
     a.align(c1, r)
     a.align(c2, r)
     a.align(c3, r)
     a.align(c4, r)
     a.compile_results()
+    
+    #determine contaminant levels
+    print ">>",wellId
+    contamInfo = contam.ContaminantInfo(a.get_results())
+    contamProp = contamInfo.calculate_contamination_levels()
+    print ">>%s\t%.2f"%(wellId, contamProp)
+    print ">>______________"
+
+    
     
     #grab top results
     topHits = pick_Nx(a.get_results(),nX)   #TODO: Change this back to 50
@@ -348,7 +358,6 @@ parser.add_option("-o", "--output", dest="outputTag", help="output file tag", me
 parser.add_option("-r", "--dynal-results", dest="dynalResults", help="Previous dynal results to compare results to", metavar="FILE")
 (options,args) = parser.parse_args()
 
-print "Options.dynalResults: ",options.dynalResults
 run_analysis(referenceName=options.referenceName, inputPath=options.inputPath, wellId=options.wellId, logTag=options.logTag, outputTag=options.outputTag, dynalResults=options.dynalResults)
 
 

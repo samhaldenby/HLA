@@ -36,7 +36,7 @@ def pick_Nx(hitCounts, proportion=50):
     #go through results again from top -> bottom scorer and grab results until [proportion] of the total score has been reached
     runningTotal=0.0
     topResults = {}
-    drb1RegEx=re.compile("DRB") #revert this back to DRB1
+    drb1RegEx=re.compile("DRB1")
     compensationForOtherDrbs=0
     for entry in sorted(totalScoreDict, key=totalScoreDict.get, reverse=True):
         #print entry,hitCounts[entry],totalScoreDict[entry]
