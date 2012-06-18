@@ -225,7 +225,8 @@ def rank_by_cross_division(results):
         score = newScoreMap[entry]
         
         if top10 < 1000:
-            print name,finalRanks[name],results[name],score
+            print "%s\t%s\t%.2f"%(name,'\t'.join(map(str,results[name])),score)
+            #name,finalRanks[name],results[name],score
             returnResults[name]= score
         top10+=1
         

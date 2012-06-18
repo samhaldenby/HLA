@@ -45,27 +45,28 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     
 
     #load references
-    r = reference.DnaReference()
+    r = reference.DnaReference()     #TODO: Currently, Use this even if it is an AA reference
     r.load_reference_tabbed(referenceName)#("/home/sh695/Documents/Scripts/PythonScripts/HLA/modules/subject.txt")
 
 
     #load FQs into clusters
-    c1 = cluster.AaClusters()
+    c1 = cluster.DnaClusters()
     c1.set_read_region(0,160)
     c1.load_from_fq("%s2_2_F.fq"%wellPath)
-    c2 = cluster.AaClusters()
+    c2 = cluster.DnaClusters()
     c2.set_read_region(0,150)
     c2.load_from_fq("%s2_4_F.fq"%wellPath)
-    c3 = cluster.AaClusters()
+    c3 = cluster.DnaClusters()
     c3.set_read_region(33,200)
     c3.load_from_fq("%s2_4_R.fq"%wellPath)
-    c4 = cluster.AaClusters()
+    c4 = cluster.DnaClusters()
     c4.set_read_region(70,232)
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
    
    
     #create aligner and do initial alignment
-    a = align.AaAligner()
+    
+    a = align.DnaAligner()
     a.align(c1, r)
     a.align(c2, r)
     a.align(c3, r)
@@ -76,12 +77,11 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     print ">>",wellId
     contamInfo = contam.ContaminantInfo(a.get_results())
     contamProp = contamInfo.calculate_contamination_levels()
-    print ">>%s\t%.2f"%(wellId, contamProp)
     print ">>______________"
 
     
-    
     #grab top results
+    print "* Running 1st alignment"
     topHits = pick_Nx(a.get_results(),nX)   #TODO: Change this back to 50
 
     #prepare list of results
@@ -104,12 +104,12 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         else:
             break
         
-    print "Open list from first run: %s"%openList
+    print "Open list after 1st run: %s"%openList
         
         
     
     #realign, omiting r1 top hit
-    print "\n* Running second alignment, omiting top scorer from 1st (%s)"%openList[0]
+    print "\n* Running 2nd alignment, omitting reads mapping to top scorer from 1st (%s)"%openList[0]
     a.align(c1,r, openList[0])
     a.align(c2,r, openList[0])
     a.align(c3,r, openList[0])
@@ -131,12 +131,12 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         else:
             break
 
-    print "Open list after run2, omiting top hit: %s"%openList
+    print "Open list after 2nd run: %s"%openList
         
         
         
     #realign, omiting r1 second-top hit
-    print "\n* Running second alignment, omiting second-top scorer from 1st (%s)"%openList[1]
+    print "\n* Running 3rd alignment, omitting reads mapping to second-top scorer from 1st (%s)"%openList[1]
     a.align(c1,r, openList[1])
     a.align(c2,r, openList[1])
     a.align(c3,r, openList[1])
@@ -160,14 +160,14 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         else:
             break
         
-    print "Open list after run2, omiting second-top hit: %s"%openList
+    print "Open list after 3rd run: %s"%openList
     
     
     remainingToCheck = len(openList) - 2
     finalResults =[]
-    print "remainingToCheck = %d"%remainingToCheck
+    #print "remainingToCheck = %d"%remainingToCheck
     while remainingToCheck != 0:
-        print "\n* Running final alignments, omiting #%d from open list (%s)"%(len(openList)-remainingToCheck,openList[len(openList)-remainingToCheck])
+        print "\n* Running final alignments, omitting next target from open list (%s)"%(openList[len(openList)-remainingToCheck])
         a.align(c1,r, openList[len(openList)-remainingToCheck])
         a.align(c2,r, openList[len(openList)-remainingToCheck])
         a.align(c3,r, openList[len(openList)-remainingToCheck])
@@ -178,7 +178,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         
         #now see if there is a new top hit not already on open list
         
-        print "Open list after run2, omiting #%d from open list (%s)"%(len(openList)-remainingToCheck, openList[len(openList)-remainingToCheck])
+        print "Open list after run: %s"%openList
         
         remainingToCheck -= 1
         
@@ -194,7 +194,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     print ">> _______________"
         
 
-def process_all_results(results, openList):
+def process_all_results(results, openList): #results is [{name:score}], openList is [name]
     #create map
     scores = {}
     originalScores = {}
@@ -206,55 +206,27 @@ def process_all_results(results, openList):
                 if gene not in originalScores:
                     originalScores[gene]= result[gene]
 
+   
     
     #now, make sure all modifier lists are same length (reason they might not be is due to getting 0 hits)
     longestList = 0
-    print "PADDING OUT NOW"
     for s in scores.items():
-        print s[0],"len(s)=",len(s[1]),"longestList=",longestList
         if len(s[1]) > longestList:
-            print "LongestList = ", len(s[1])
             longestList = len(s[1])
         
     for s in scores.items():
-        print s[0],len(s[1])
         while len(s[1]) < longestList:
-            print "appending"
             s[1].append(0.0)
-        print s[0],len(s[1])
-    print "______GGGG____"
-            
-                    
 
-                    
-            
-            
-    #for entry in scores.items():
-    #    print entry[0],entry[1]
-        
-    #for entry in originalScores.items():
-    #    print entry[0],entry[1]
-        
-    #create modifiers
-    #print "Creating modifiers"
     modifiers = {}
     for entry in scores.items():
-        #print "scores.items():",entry[0],entry[1]
+
         gene = entry[0]
         modifiers[gene]=[]
 
         for result in entry[1]:
             modifiers[gene].append(result/originalScores[gene])
-  #          print result
-  #          print "originalScores[%s]="%(gene)
-  #          print originalScores[gene]
-  #          print "modifiers[%s]="%(gene)
-  #          print modifiers[gene]
 
-    
-   # for entry in modifiers.items():
-   #     print entry[0],entry[1]
-        
     #multiply all modifiers by all scores
     modifiedScores = {}
     unmodifiedScores = {}
@@ -280,64 +252,43 @@ def process_all_results(results, openList):
             unmodifiedThisScore = math.log10(unmodifiedThisScore)
         if thisScore >0:
             thisScore = math.log10(thisScore)
+            
         #divide by number of top hits
         thisScore /= len(scores)
         unmodifiedThisScore /=len(scores)
         modifiedScores[geneName] = thisScore
         unmodifiedScores[geneName] = unmodifiedThisScore
     
-
+    print "***************"
+    for gene in scores.items():
+        modifiersForThisOne = modifiers[gene[0]]
+        print "%s\t%s\t%s"%(gene[0],'\t'.join(map(str,gene[1])), '\t'.join(map(str,modifiersForThisOne)))
+    print "***************"   
     
+    prevScore = 0
+    scoreNum=0
     for entry in sorted(modifiedScores, key=modifiedScores.get, reverse=True):
+        scoreNum +=1
         thisScore = modifiedScores[entry]
         status =""
         if thisScore >3:
-            status = "PASS"
-        elif thisScore >2.5:
-            status = "UNSURE"
+            #is there too big a difference between this score and the next highest score?
+            if prevScore - thisScore > 1:
+                status = "FAIL - Score differential failure"
+            #Is this one of the top 2 scorers?
+            elif scoreNum <= 2:
+                status = "PASS"
+            else:
+                status = "WARNING - Pass threshold but not in top 2 alleles"
+
         else:
-            status = "FAIL"
+            status = "FAIL - Score too low"
+
         print ">>",entry, modifiedScores[entry], unmodifiedScores[entry],status
+        prevScore = thisScore
             
     return modifiedScores
 
-#    #grab top hit again
-#    topHitNames = set()
-#    for entry in sorted(results, key=results.get, reverse=True):
-#        name = entry
-#        score = results[entry]
-#        print name, score
-#        if len(topHitNames)==0:
-#            topHitNames.add(name)
-#            no2Hit = name
-#            break
-#        
-#    #realign
-#    topHitNames.add(no1Hit)
-#    topHitNames.add(no2Hit)
-#    realigner = align.DnaAligner()
-#    realigner.align(c1,r, topHitNames)
-#    realigner.align(c2,r, topHitNames)
-#    realigner.align(c3,r, topHitNames)
-#    realigner.align(c4,r, topHitNames)
-#    realigner.compile_results()
-#    topHits = pick_Nx(realigner.get_results(),nX)
-#    results = rank_by_cross_division(topHits)
-#    
-#     #grab top hit again
-#    topHitNames = set()
-#    for entry in sorted(results, key=results.get, reverse=True):
-#        name = entry
-#        score = results[entry]
-#        print name, score
-#        if len(topHitNames)==0:
-#            topHitNames.add(name)
-#          #  no1Hit = name
-#            break
-#        
-#    print
-#    print "_____________"
-#    print "1: %s\n2: %s"%(no1Hit,no2Hit)
 
     
     

@@ -26,8 +26,8 @@ def compare_with_dynal(results, wellId, dynalFileName):
             dynalResultsLine = line.strip()
             
     dynalResultsLineSplit = dynalResultsLine.split("\t")
-    firstDynalHit = dynalResultsLineSplit[5]
-    secondDynalHit = dynalResultsLineSplit[6]
+    firstDynalHit = dynalResultsLineSplit[1]
+    secondDynalHit = dynalResultsLineSplit[2]
     
     #compile dynal results
     dynalResults = set()

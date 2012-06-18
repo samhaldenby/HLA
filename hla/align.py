@@ -75,7 +75,7 @@ class Aligner(object):
         self._results ={}
         numReads = len(self._counts)
         for gene in hitGenes:
-            self._results[gene]=[0.0] * numReads
+            self._results[gene]=[0] * numReads
             counter = 0
             for dataSet in self._counts.items():
                 if gene in dataSet[1]:
@@ -168,7 +168,7 @@ class DnaAligner(Aligner):
                         keepCluster = False
                         break
                 
-                #if all ok, add hits to each hit target   
+                #if all is fine, add hits to each hit target   
                 if keepCluster:
                     score = queryCount #1 hit per read in cluster
                     for target in hitTargets:
@@ -249,9 +249,6 @@ class AaAligner(Aligner):
         #add to _counts
         self._counts[clusters.name] = geneHitsForCluster
 
-    
-    
-    
     
 
         
