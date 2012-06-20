@@ -51,16 +51,16 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
 
     #load FQs into clusters
     c1 = cluster.DnaClusters()
-    c1.set_read_region(0,160)
+    c1.set_read_region(0,160) #orig[0,160]
     c1.load_from_fq("%s2_2_F.fq"%wellPath)
     c2 = cluster.DnaClusters()
-    c2.set_read_region(0,150)
+    c2.set_read_region(10,150) #orig [0,150]
     c2.load_from_fq("%s2_4_F.fq"%wellPath)
     c3 = cluster.DnaClusters()
-    c3.set_read_region(33,200)
+    c3.set_read_region(33,200)  #orig [33,200]
     c3.load_from_fq("%s2_4_R.fq"%wellPath)
     c4 = cluster.DnaClusters()
-    c4.set_read_region(70,232)
+    c4.set_read_region(70,232) #orig [70,232]
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
    
    
@@ -72,18 +72,23 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c3, r)
     a.align(c4, r)
     a.compile_results()
+    a.modify_scores_for_read_imbalances()
+    
     
     #determine contaminant levels
     print ">>",wellId
+    a.report_basic_stats()
     contamInfo = contam.ContaminantInfo(a.get_results())
     contamProp = contamInfo.calculate_contamination_levels()
+    realResults = contamInfo.get_real_mapped_counts()
     print ">>______________"
 
     
     #grab top results
     print "* Running 1st alignment"
-    topHits = pick_Nx(a.get_results(),nX)   #TODO: Change this back to 50
-
+    topHits = pick_Nx(a.get_results(),nX)
+    
+   # topHits = normalise_hits(topHits,realResults)
     #prepare list of results
     results =[]
     #rank them
@@ -115,7 +120,9 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c3,r, openList[0])
     a.align(c4,r, openList[0])
     a.compile_results()
+    a.modify_scores_for_read_imbalances()
     topHits = pick_Nx(a.get_results(),nX)
+    #topHits = normalise_hits(topHits,realResults)
     results.append(rank_by_cross_division(topHits))
     #now see if there is a new top hit not already on open list
     firstLine = True
@@ -142,7 +149,9 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c3,r, openList[1])
     a.align(c4,r, openList[1])
     a.compile_results()
+    a.modify_scores_for_read_imbalances()
     topHits = pick_Nx(a.get_results(),nX)
+    #topHits = normalise_hits(topHits,realResults)
     results.append(rank_by_cross_division(topHits))
     #now see if there is a new top hit not already on open list
     firstLine = True
@@ -173,7 +182,9 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         a.align(c3,r, openList[len(openList)-remainingToCheck])
         a.align(c4,r, openList[len(openList)-remainingToCheck])
         a.compile_results()
+        a.modify_scores_for_read_imbalances()
         topHits = pick_Nx(a.get_results(),nX)
+      #  topHits = normalise_hits(topHits,realResults)
         results.append(rank_by_cross_division(topHits))
         
         #now see if there is a new top hit not already on open list
@@ -187,6 +198,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     modifiedResults = process_all_results(results, openList)
     
     #comparing to dynal results? 
+    print "COMPARING WITH DYNAL NOW!"
     if dynalResults != None:
         compare_with_dynal(modifiedResults, wellId, dynalResults)
 
@@ -284,7 +296,7 @@ def process_all_results(results, openList): #results is [{name:score}], openList
         else:
             status = "FAIL - Score too low"
 
-        print ">>",entry, modifiedScores[entry], unmodifiedScores[entry],status
+        print ">>%s\t%s\t%s"%(entry, modifiedScores[entry], status) #unmodifiedScores[entry],status
         prevScore = thisScore
             
     return modifiedScores
@@ -296,7 +308,24 @@ def process_all_results(results, openList): #results is [{name:score}], openList
 
     
    
-
+#def normalise_hits(topHits,realResults):
+#    retHits = {}
+#    for entry in topHits.items():
+#        name = entry[0]
+#        origHits = entry[1]
+#        newHits = []
+#        for i in range(0,len(origHits)):
+#           if realResults[i]==0:
+#               newHits.append(0.0)
+#            else:
+#                mod =  (realResults[i]*1.0)/(sum(realResults)*1.0)
+#                #print "Sum(realResults): ",sum(realResults)
+#                #print "realResults[i]: ",realResults[i]
+#                #print "DenomMod = ",denominatorMod
+#                newHits.append(((origHits[i]*100000)/(realResults[i])) *mod)
+#        retHits[name] = newHits
+#        
+#    return retHits
 
 #Parse command line options
 

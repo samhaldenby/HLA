@@ -17,7 +17,8 @@ class Aligner(object):
     _counts = {}#{clusterName : {targetName:hitCount} }
     _results = {}#{targetName:[hits,hits.....hits]} modified by number of ambiguous hits
     #_rawResults = {}#unmodified hit counts, in same format as results
-    
+    _totalReads = {}#{clusterName : numOfReadsInTotal}
+    _mappedReadCounts = {}#{clusterName : numOfMappedReads}
     
     def align(self,clusters,refs, omitHitsTo = set()):
         '''
@@ -86,7 +87,26 @@ class Aligner(object):
             #print "%s\t%s\t%.2f" %(gene, self._results[gene],sum(self._results[gene]))
             
 
-    
+    def report_basic_stats(self):
+        '''
+        basic alignment stats can be displayed with this
+        '''
+        
+        print 
+        print "*** Basic stats ***"
+        for entry in self._totalReads.items():
+            clusterName = entry[0]
+            totalReads = entry[1]
+            #now count how many reads mapped
+            totalHits =0 
+            for hitEntry in self._counts[clusterName].items():
+                hitCount = hitEntry[1]
+                totalHits +=hitCount
+        
+            print "%s\t%s\t%s\t%.2f%%"%(clusterName,totalHits,totalReads,(totalHits*100.0)/(totalReads*1.0))
+            
+        print
+        
     def get_results(self):
         '''
         gets results. Be sure to have run compile_results() first
@@ -107,7 +127,28 @@ class DnaAligner(Aligner):
     for carrying out nucleotide alignments and storing subsequent data.
     '''
     
-    
+    def report_basic_stats(self):
+        '''
+        basic alignment stats can be displayed with this
+        '''
+        
+        print ">>"
+        print ">> *** Basic stats ***"
+        print ">> Cluster\tTotalHits\tTotalMappedReads\tTotalReads\t%Hits/Total\t$Mapped/Total\tAve Hits Per Mapped"
+        for entry in self._totalReads.items():
+            clusterName = entry[0]
+            totalReads = entry[1]
+            #now count how many reads mapped
+            totalHits =0 
+            for hitEntry in self._counts[clusterName].items():
+                hitCount = hitEntry[1]
+                totalHits +=hitCount
+        
+            print ">> %s\t%d\t%d\t%s\t%.2f%%\t%.2f%%\t%.2f"%(clusterName,totalHits,self._mappedReadCounts[clusterName],totalReads,(totalHits*100.0)/(totalReads*1.0),(self._mappedReadCounts[clusterName]*100.0)/(totalReads*1.0), totalHits/self._mappedReadCounts[clusterName])
+            
+        print ">>"
+        
+        
     def _calc_hits_against_ref(self, query, references):
         '''
         takes a query sequence and Reference class and calculates the targets that the query sequence hits
@@ -147,20 +188,27 @@ class DnaAligner(Aligner):
         
         logging.info('Aligning %d clusters from %s to %d references, omitting reads hitting %s',len(clusters.get_clusters()), clusters.name, len(refs.get_references()), omitHitsTo)
         
+        
+        
         #prepare variables
         referenceHitCounts = {} #{referenceSequenceName : hitCount}
         queryClusters = clusters.get_clusters()
-        
+        totalCount = 0
+        mappedReads = 0
         #For each cluster of reads, see if they match any reference sequences
         for cluster in queryClusters.items():
             querySeq = cluster[0]
             queryCount = cluster[1]
+            totalCount+= queryCount
+            
+            
             
             #get a set of all targets that this cluster hits
             hitTargets = self._calc_hits_against_ref(query=querySeq, references=refs)
             
             
             if len(hitTargets) > 0:
+                mappedReads += queryCount
                 #check that it doesn't map to any of the omitHitTo set. If it does, chuck the cluster away
                 keepCluster = True
                 for target in hitTargets:
@@ -179,10 +227,30 @@ class DnaAligner(Aligner):
         
         #add to _counts
         self._counts[clusters.name] = referenceHitCounts
+        self._totalReads[clusters.name] = totalCount
+        self._mappedReadCounts[clusters.name] = mappedReads
         
         
+    def modify_scores_for_read_imbalances(self):
+        #calculate read imbalances
+        modifiers = []
+        total = 0
+        for entry in self._mappedReadCounts.items():
+            total+=entry[1]
         
-        
+        for entry in self._mappedReadCounts.items():
+            ampliconName = entry[0]
+            count = entry[1]
+            modifiers.append((total*1.0)/(count*1.0))
+            
+        #Now modify all results
+        for entry in self._results.items():
+            targetName = entry[0]
+            allHits = entry[1] #e.g. [100,500,200,140]
+            counter = 0
+            for i in range(0,len(modifiers)):
+                allHits[i] = (allHits[i]*1.0) * modifiers[i] * (1.0/len(modifiers)*1.0)
+            
         
 class AaAligner(Aligner):
     '''

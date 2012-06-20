@@ -14,6 +14,8 @@ class ContaminantInfo(object):
     #raw alignment data gets split into contaminants and non-contaminants
     _contamResults = {}
     _realResults = {}
+    
+    _realSummedResults = []  # eg [100,400,12000,5000]
     def __init__(self, rawResults):
         '''
         Constructor
@@ -65,6 +67,8 @@ class ContaminantInfo(object):
             else:
                 contamProps[r] = (contamTotals[r]*1.0)/(overallTotals[r]*1.0)
                 realProps[r] = (realTotals[r]*1.0)/(overallTotals[r]*1.0)
+                
+        self._realSummedResults = realTotals
         
         print "*** Contamination report ***"
         print "Contam counts\t%s"%('\t'.join(map(str,contamTotals)))
@@ -79,7 +83,12 @@ class ContaminantInfo(object):
         for c in self._contamResults.items():
             print "%s\t%s"%(c[0],'\t'.join(map(str,c[1])))
             
-        return sum(contamTotals)/sum(overallTotals)
+        self._overallContaminationPercent = (sum(contamTotals)*1.0/sum(overallTotals)*1.0)*100
+        
+    def get_real_mapped_counts(self):
+        return self._realSummedResults
+    
+
  
                 
             
