@@ -5,9 +5,12 @@ import hla.align as align
 from hla.top_pickers import *
 from hla.rankers import *
 from hla.validation import *
+import hla.final_results as final_results
+from hla.allele_status import Status
 import hla.contaminants as contam
 from optparse import OptionParser
 import sys
+import copy
 
 ###NOTES
 # 1 - The program has trouble in detecting 0408/0901....is this a primer issue? Compare 04XX with 0408 and see
@@ -31,8 +34,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     return:
         Nothing
     '''
-    
-    
+
     #temp var
     nX = 100
     #open logger
@@ -72,6 +74,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c3, r)
     a.align(c4, r)
     a.compile_results()
+    rawResults = copy.deepcopy(a.get_results())
     a.modify_scores_for_read_imbalances()
     
     
@@ -92,7 +95,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     #prepare list of results
     results =[]
     #rank them
-    results.append(rank_by_cross_division(topHits))
+    results.append(rank_results(topHits))
     
 
     openList = []
@@ -120,10 +123,10 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c3,r, openList[0])
     a.align(c4,r, openList[0])
     a.compile_results()
-    a.modify_scores_for_read_imbalances()
+ #   a.modify_scores_for_read_imbalances()
     topHits = pick_Nx(a.get_results(),nX)
     #topHits = normalise_hits(topHits,realResults)
-    results.append(rank_by_cross_division(topHits))
+    results.append(rank_results(topHits))
     #now see if there is a new top hit not already on open list
     firstLine = True
     for entry in sorted(results[-1], key=results[-1].get, reverse=True):
@@ -149,10 +152,10 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     a.align(c3,r, openList[1])
     a.align(c4,r, openList[1])
     a.compile_results()
-    a.modify_scores_for_read_imbalances()
+#    a.modify_scores_for_read_imbalances()
     topHits = pick_Nx(a.get_results(),nX)
     #topHits = normalise_hits(topHits,realResults)
-    results.append(rank_by_cross_division(topHits))
+    results.append(rank_results(topHits))
     #now see if there is a new top hit not already on open list
     firstLine = True
     for entry in sorted(results[-1], key=results[-1].get, reverse=True):
@@ -182,10 +185,10 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         a.align(c3,r, openList[len(openList)-remainingToCheck])
         a.align(c4,r, openList[len(openList)-remainingToCheck])
         a.compile_results()
-        a.modify_scores_for_read_imbalances()
+#        a.modify_scores_for_read_imbalances()
         topHits = pick_Nx(a.get_results(),nX)
       #  topHits = normalise_hits(topHits,realResults)
-        results.append(rank_by_cross_division(topHits))
+        results.append(rank_results(topHits))
         
         #now see if there is a new top hit not already on open list
         
@@ -195,18 +198,23 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         
         
     print ">> *** %s ***"%wellId
-    modifiedResults = process_all_results(results, openList)
+    resultsBundle = process_all_results(rawResults, results, openList)
+    resultsBundle.wellId = wellId
     
+    #prepare output file for result line
+    outFile = open(outputTag,"a")
+    outFile.write("%s\n"%resultsBundle.result_string())
+    outFile.close()
+        
     #comparing to dynal results? 
-    print "COMPARING WITH DYNAL NOW!"
-    if dynalResults != None:
-        compare_with_dynal(modifiedResults, wellId, dynalResults)
+    #if dynalResults != None:
+    #    compare_with_dynal(modifiedResults, wellId, dynalResults)
 
    
     print ">> _______________"
         
 
-def process_all_results(results, openList): #results is [{name:score}], openList is [name]
+def process_all_results(rawResults, results, openList): #results is [{name:score}], openList is [name]
     #create map
     scores = {}
     originalScores = {}
@@ -279,6 +287,7 @@ def process_all_results(results, openList): #results is [{name:score}], openList
     
     prevScore = 0
     scoreNum=0
+    finalResults = {} # list of FinalResult class instances
     for entry in sorted(modifiedScores, key=modifiedScores.get, reverse=True):
         scoreNum +=1
         thisScore = modifiedScores[entry]
@@ -286,20 +295,34 @@ def process_all_results(results, openList): #results is [{name:score}], openList
         if thisScore >3:
             #is there too big a difference between this score and the next highest score?
             if prevScore - thisScore > 1:
-                status = "FAIL - Score differential failure"
+                status = Status.Fail_score_diff() #"FAIL - Score differential failure"
             #Is this one of the top 2 scorers?
             elif scoreNum <= 2:
-                status = "PASS"
+                status = Status.Pass() #"PASS"
             else:
-                status = "WARNING - Pass threshold but not in top 2 alleles"
+                status = Status.Warn_not_top_two() #"WARNING - Pass threshold but not in top 2 alleles"
 
         else:
-            status = "FAIL - Score too low"
-
-        print ">>%s\t%s\t%s"%(entry, modifiedScores[entry], status) #unmodifiedScores[entry],status
+            status = Status.Fail_low_score() #"FAIL - Score too low"
+        
+        
+        #print "RAWRESULTS:",rawResults
+        #raw_input()
+        #print "RESULTS:",results
+        #print ">>%s\t%s\t%s"%(entry, modifiedScores[entry], status) #unmodifiedScores[entry],status
+        f = final_results.FinalResult()
+        f.score = modifiedScores[entry]
+        f.targetName = entry
+        f.status = status
+        f.rawCounts = rawResults[entry]
+        finalResults[f.score]=(f)
+        
+        print ">>%s\t%s\t%s\t%s"%(entry,modifiedScores[entry],status,rawResults[entry])
         prevScore = thisScore
+    resultsBundle = final_results.FinalResultBundle()
+    resultsBundle.results = finalResults
             
-    return modifiedScores
+    return resultsBundle
 
 
     

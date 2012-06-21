@@ -244,13 +244,17 @@ class DnaAligner(Aligner):
             modifiers.append((total*1.0)/(count*1.0))
             
         #Now modify all results
+        modifiedResults = {}
         for entry in self._results.items():
             targetName = entry[0]
             allHits = entry[1] #e.g. [100,500,200,140]
             counter = 0
+            modifiedHits = [0.0]*len(modifiers)
             for i in range(0,len(modifiers)):
                 allHits[i] = (allHits[i]*1.0) * modifiers[i] * (1.0/len(modifiers)*1.0)
+            #modifiedResults[targetName] = modifiedHits
             
+        return modifiedResults
         
 class AaAligner(Aligner):
     '''
