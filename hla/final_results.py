@@ -17,6 +17,8 @@ class FinalResultBundle(object):
     wellId = ""
     comments = ""   
     calledAlleles = ""
+    accepted_alleles = []
+    
     
     
     def result_string(self):
@@ -24,16 +26,13 @@ class FinalResultBundle(object):
         #sort alleles in to order
         self.accepted_alleles = []
         count = 0
-        #for entry in sorted(self.results, key=self.results.get): # THIS IS NOT SORTING PROPERLY BY VALUE! Try it on E06 to see
+
+
         for entry in sorted(self.results.iteritems(), key=lambda (x,y): float(x), reverse=True):
-
-
             score = entry[0]
             result = entry[1]
             self.resultsSortedList.append(result)
 
-            
-            
             
         #prepare comments and top alleles
         self._calculate_called_alleles()
@@ -48,6 +47,8 @@ class FinalResultBundle(object):
             
         
         return finalString
+        
+        
         
     def _calculate_called_alleles(self):
         
@@ -65,6 +66,7 @@ class FinalResultBundle(object):
             self.accepted_alleles.append("*")
         if len(self.accepted_alleles) == 1:
             self.accepted_alleles.append(self.accepted_alleles[0])
+            
             
     
     def _generate_comment(self):
@@ -104,8 +106,6 @@ class FinalResult(object):
     modifiedCounts = []
     score = 0.0
     
-    
-
         
         
     def get_result_string(self):

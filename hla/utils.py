@@ -16,9 +16,14 @@ def translate_3_frames(seq):
     return translations
 
 
+def reverse_complement(seq):
+    rcSeq = Seq(seq, generic_dna)
+    return rcSeq.reverse_complement().tostring()
+
 
 def shorten_name(name): 
     #trim down geneName
     colonSplit = name.split(":")
     shorterName = "%s:%s"%(colonSplit[0],colonSplit[1]) 
     return shorterName
+

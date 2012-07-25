@@ -23,6 +23,7 @@ class ContaminantInfo(object):
         self._rawAlignmentResults = rawResults 
         
         
+        
     def calculate_contamination_levels(self):
         logging.info('Determining levels of contamination')
         if len(self._rawAlignmentResults) == 0:
@@ -84,6 +85,8 @@ class ContaminantInfo(object):
             print "%s\t%s"%(c[0],'\t'.join(map(str,c[1])))
             
         self._overallContaminationPercent = (sum(contamTotals)*1.0/sum(overallTotals)*1.0)*100
+        
+        
         
     def get_real_mapped_counts(self):
         return self._realSummedResults

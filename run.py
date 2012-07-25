@@ -20,7 +20,7 @@ import copy
 #    3) Appears that ranking by cross division is not being carried out, i.e. not multiplying by rankings. Check this by changing N30 to N50+
 #        3a) Trying this now - Done! Makes no difference!
 def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResults=None):
-   
+    
     '''
     Main function for running hla analysis
     
@@ -64,18 +64,25 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     c4 = cluster.DnaClusters()
     c4.set_read_region(70,232) #orig [70,232]
     c4.load_from_fq("%s2_5_R.fq"%wellPath)
+    
+    #export clusters
+    minClusterSizeForExport = 2
+    c1.export_clusters("%s_2_2_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
+    c2.export_clusters("%s_2_4_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
+    c3.export_clusters("%s_2_4_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
+    c4.export_clusters("%s_2_5_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
    
    
     #create aligner and do initial alignment
     
     a = align.DnaAligner()
-    a.align(c1, r)
-    a.align(c2, r)
-    a.align(c3, r)
-    a.align(c4, r)
+    a.align(c1, r, unmappedFileName = "NM_%s_2_2_F.fa"%wellId)
+    a.align(c2, r, unmappedFileName = "NM_%s_2_4_F.fa"%wellId)
+    a.align(c3, r, unmappedFileName = "NM_%s_2_4_R.fa"%wellId)
+    a.align(c4, r, unmappedFileName = "NM_%s_2_5_R.fa"%wellId)
     a.compile_results()
-    rawResults = copy.deepcopy(a.get_results())
-    a.modify_scores_for_read_imbalances()
+    
+   
     
     
     #determine contaminant levels
@@ -85,13 +92,22 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     contamProp = contamInfo.calculate_contamination_levels()
     realResults = contamInfo.get_real_mapped_counts()
     print ">>______________"
+    
+     #print raw results 
+    print "* Raw Counts"
+    rawTopHits = pick_Nx(a.get_results(),nX)
+    rank_results(rawTopHits)
+    
+    #copy raw and modify 
+    rawResults = copy.deepcopy(a.get_results())
+    a.modify_scores_for_read_imbalances()
 
     
     #grab top results
     print "* Running 1st alignment"
     topHits = pick_Nx(a.get_results(),nX)
     
-   # topHits = normalise_hits(topHits,realResults)
+    #topHits = normalise_hits(topHits,realResults)
     #prepare list of results
     results =[]
     #rank them
@@ -207,8 +223,8 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     outFile.close()
         
     #comparing to dynal results? 
-    #if dynalResults != None:
-    #    compare_with_dynal(modifiedResults, wellId, dynalResults)
+    if dynalResults != None:
+        compare_with_dynal(resultsBundle, wellId, dynalResults)
 
    
     print ">> _______________"
@@ -361,6 +377,7 @@ parser.add_option("-o", "--output", dest="outputTag", help="output file tag", me
 parser.add_option("-r", "--dynal-results", dest="dynalResults", help="Previous dynal results to compare results to", metavar="FILE")
 (options,args) = parser.parse_args()
 
+#print options.dynalResults
 run_analysis(referenceName=options.referenceName, inputPath=options.inputPath, wellId=options.wellId, logTag=options.logTag, outputTag=options.outputTag, dynalResults=options.dynalResults)
 
 

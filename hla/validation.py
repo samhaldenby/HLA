@@ -6,7 +6,7 @@ Created on 21 May 2012
 '''
 
 
-def compare_with_dynal(results, wellId, dynalFileName):
+def compare_with_dynal(resultsBundle, wellId, dynalFileName):
     
     logging.info('Comparing to dynal results')
                  
@@ -36,26 +36,34 @@ def compare_with_dynal(results, wellId, dynalFileName):
     print ">>",dynalResults
     
     
-    #compile these results
-    myResults = set()
     score = 0
-    top2 = 0
-    for entry in sorted(results, key=results.get, reverse=True):
-      #  print "ENTRY:",entry, len(newScoreMap)
-        name = entry
-        #score = results[entry]
-        
-        if top2 < 2:
-            modifiedName = "%s%s"%(name[5:7],name[8:])
-            
-            if modifiedName in dynalResults:
-                score+=1
-                print ">> %s\tYes"%modifiedName
-            else:
-                print ">> %s\tNo"%modifiedName
-        top2+=1
-        
-    print ">> Score:\t\t\t\t\t\t\t\t\t%d"% score
+    for allele in resultsBundle.accepted_alleles:
+        if allele in dynalResults:
+            score+=1
+            print ">> %s\tYes"%allele
+        else:
+            print ">> %s\tNo"%allele
+    
+#    #compile these results
+#    myResults = set()
+#    score = 0
+#    top2 = 0
+#    for entry in sorted(results, key=results.get, reverse=True):
+#      #  print "ENTRY:",entry, len(newScoreMap)
+#        name = entry
+#        #score = results[entry]
+#        
+#        if top2 < 2:
+#            modifiedName = "%s%s"%(name[5:7],name[8:])
+#            
+#            if modifiedName in dynalResults:
+#                score+=1
+#                print ">> %s\tYes"%modifiedName
+#            else:
+#                print ">> %s\tNo"%modifiedName
+#        top2+=1
+#        
+#    print ">> Score:\t\t\t\t\t\t\t\t\t%d"% score
         
     
     

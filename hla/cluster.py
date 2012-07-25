@@ -95,6 +95,15 @@ class Clusters(object):
             if self.clustergram[x] >0:
                 print "%d\t%d" %(x, self.clustergram[x])
     
+    def export_clusters(self, outFileName, minClusterSize = 1):
+        outFile = open(outFileName, "w")
+        for cluster in self._clusters.items():
+            sequence = cluster[0]
+            count = cluster[1]
+            if count >= minClusterSize:
+                outFile.write(">%d\n%s\n"%(count,sequence))
+                
+        outFile.close()
     
     
     

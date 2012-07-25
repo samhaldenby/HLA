@@ -1,6 +1,7 @@
 import math
 import logging
 from hla.utils import *
+import commands
 
 '''
 Created on 17 May 2012
@@ -92,21 +93,8 @@ class Aligner(object):
         basic alignment stats can be displayed with this
         '''
         
-        print 
-        print "*** Basic stats ***"
-        for entry in self._totalReads.items():
-            clusterName = entry[0]
-            totalReads = entry[1]
-            #now count how many reads mapped
-            totalHits =0 
-            for hitEntry in self._counts[clusterName].items():
-                hitCount = hitEntry[1]
-                totalHits +=hitCount
-        
-            print "%s\t%s\t%s\t%.2f%%"%(clusterName,totalHits,totalReads,(totalHits*100.0)/(totalReads*1.0))
-            
-        print
-        
+        pass
+    
     def get_results(self):
         '''
         gets results. Be sure to have run compile_results() first
@@ -143,8 +131,17 @@ class DnaAligner(Aligner):
             for hitEntry in self._counts[clusterName].items():
                 hitCount = hitEntry[1]
                 totalHits +=hitCount
-        
-            print ">> %s\t%d\t%d\t%s\t%.2f%%\t%.2f%%\t%.2f"%(clusterName,totalHits,self._mappedReadCounts[clusterName],totalReads,(totalHits*100.0)/(totalReads*1.0),(self._mappedReadCounts[clusterName]*100.0)/(totalReads*1.0), totalHits/self._mappedReadCounts[clusterName])
+                
+            percentHitsByTotal = 0.0
+            percentMappedByTotal = 0.0
+            if totalReads > 0:
+                percentHitsByTotal = (totalHits*100.0)/(totalReads*1.0)
+                percentMappedByTotal = (self._mappedReadCounts[clusterName]*100.0)/(totalReads*1.0)
+                
+            aveHitsPerMapped = 0.0
+            if  self._mappedReadCounts[clusterName] > 0:
+                aveHitsPerMapped = totalHits/self._mappedReadCounts[clusterName]
+            print ">> %s\t%d\t%d\t%s\t%.2f%%\t%.2f%%\t%.2f"%(clusterName,totalHits,self._mappedReadCounts[clusterName],totalReads,percentHitsByTotal,percentMappedByTotal, aveHitsPerMapped)
             
         print ">>"
         
@@ -169,13 +166,14 @@ class DnaAligner(Aligner):
             for refSeq in refSeqs:
                 if query in refSeq:
                     hitTargets.add(refName)
-                    
+        
+        #print "Hit targets are: %s",hitTargets
         return hitTargets
     
     
     
     
-    def align(self,clusters,refs,omitHitsTo = set()):
+    def align(self,clusters,refs,omitHitsTo = set(), unmappedFileName = None):
         '''
         derives hits from clusters to references
         
@@ -189,26 +187,38 @@ class DnaAligner(Aligner):
         logging.info('Aligning %d clusters from %s to %d references, omitting reads hitting %s',len(clusters.get_clusters()), clusters.name, len(refs.get_references()), omitHitsTo)
         
         
-        
+###        print "*************"
+###        print "**** %s"%clusters.name
+###        print "*************"
         #prepare variables
         referenceHitCounts = {} #{referenceSequenceName : hitCount}
         queryClusters = clusters.get_clusters()
         totalCount = 0
         mappedReads = 0
+        
+        #if writing unmapped to a file, open that file
+        unmappedFile = None
+        if unmappedFileName != None:
+            unmappedFile = open(unmappedFileName,"w")
+            
+        #variables for generating stats histograms (more of a debugging technique at the mo, but could be good in final reports)
+        unmappedClusterHistogram = {}
+        mappedClusterHistogram = {}
         #For each cluster of reads, see if they match any reference sequences
         for cluster in queryClusters.items():
-            querySeq = cluster[0]
-            queryCount = cluster[1]
-            totalCount+= queryCount
+            clusterSequence = cluster[0]
+            numReadsInCluster = cluster[1]
+            totalCount+= numReadsInCluster
             
             
             
             #get a set of all targets that this cluster hits
-            hitTargets = self._calc_hits_against_ref(query=querySeq, references=refs)
+            hitTargets = self._calc_hits_against_ref(query=clusterSequence, references=refs)
             
             
             if len(hitTargets) > 0:
-                mappedReads += queryCount
+                mappedReads += numReadsInCluster
+###                print "MappedReads = %d (this cluster size: %d)\t(%s)"%(mappedReads, numReadsInCluster, hitTargets)
                 #check that it doesn't map to any of the omitHitTo set. If it does, chuck the cluster away
                 keepCluster = True
                 for target in hitTargets:
@@ -218,18 +228,317 @@ class DnaAligner(Aligner):
                 
                 #if all is fine, add hits to each hit target   
                 if keepCluster:
-                    score = queryCount #1 hit per read in cluster
+                    #add to mappedClusterHistogram
+                    if numReadsInCluster not in mappedClusterHistogram:
+                        mappedClusterHistogram[numReadsInCluster] = 1
+                    else:
+                        mappedClusterHistogram[numReadsInCluster] +=1
+                    score = numReadsInCluster #1 hit per read in cluster
                     for target in hitTargets:
                         if target not in referenceHitCounts:
                             referenceHitCounts[target] =score
                         else:
                             referenceHitCounts[target]+=score
-        
+            #if doesn't map, write to unmapped reads file
+            elif unmappedFile != None:
+                if numReadsInCluster not in unmappedClusterHistogram:
+                    unmappedClusterHistogram[numReadsInCluster] = 1
+                else:
+                    unmappedClusterHistogram[numReadsInCluster] +=1
+                
+###                if numReadsInCluster > 10:
+###                    print "Cluster of size %d not mapped!:\t%s"%(numReadsInCluster,clusterSequence)
+                unmappedFile.write("%d\t%s\n"%(numReadsInCluster, clusterSequence))
+
         #add to _counts
         self._counts[clusters.name] = referenceHitCounts
         self._totalReads[clusters.name] = totalCount
         self._mappedReadCounts[clusters.name] = mappedReads
+###        print ">>> MappedReads[%s] = %d (this cluster size: %d)\t(%s)"%(clusters.name,mappedReads, numReadsInCluster, hitTargets)
         
+        if unmappedFile != None:
+            unmappedFile.close()
+            
+###       print
+###       print "*** Unmapped"
+###        print "ClusterSize\tNumClusters"
+###        for entry in unmappedClusterHistogram.items():
+###            binId = entry[0]
+###            frequency = entry[1]
+###            print "%d\t%d"%(binId,frequency)
+###        print
+###        print "*** Mapped"
+###        print "ClusterSize\tNumClusters"
+###        for entry in mappedClusterHistogram.items():
+###            binId = entry[0]
+###            frequency = entry[1]
+###            print "%d\t%d"%(binId,frequency)
+        
+        
+    def align_by_blast(self,clusters,refs,omitHitsTo = set(), unmappedFileName = None):
+        '''
+        derives hits from clusters to references but uses blast - experimental so don't use for production!
+        
+        args:
+            clusters    Clusters class object
+            references  Reference class object
+            omitHitsTo  A set of geneNames (abbreviated!). Any reads that map to these genes (regardless of where else they map) will not be considered
+        '''
+
+        
+        logging.info('Aligning %d clusters from %s to %d references with BLAST, omitting reads hitting %s',len(clusters.get_clusters()), clusters.name, len(refs.get_references()), omitHitsTo)
+        
+        
+###        print "*************"
+###        print "**** %s"%clusters.name
+###        print "*************"
+        #prepare variables
+        referenceHitCounts = {} #{referenceSequenceName : hitCount}
+        queryClusters = clusters.get_clusters()
+        totalCount = 0
+        mappedReads = 0
+        
+        #if writing unmapped to a file, open that file
+        unmappedFile = None
+        if unmappedFileName != None:
+            unmappedFile = open(unmappedFileName,"w")
+            
+        #variables for generating stats histograms (more of a debugging technique at the mo, but could be good in final reports)
+        unmappedClusterHistogram = {}
+        mappedClusterHistogram = {}
+        #For each cluster of reads, see if they match any reference sequences
+        for cluster in queryClusters.items():
+            
+            clusterSequence = cluster[0]
+            numReadsInCluster = cluster[1]
+            totalCount+= numReadsInCluster
+            #create fasta entry
+            
+            if numReadsInCluster >1:
+                cmd = "echo %s | blastn -query - -db /scratch/sh695/HLA/subject.fa -ungapped -outfmt 6 "%clusterSequence.strip()
+                #print cmd
+             #   blastResults = subprocess.check_output(cmd,shell=True)
+                status, blastResults = commands.getstatusoutput(cmd)
+                #get top hits
+                blastScoreList = []
+                blastHitList = []
+                #print blastResults
+                hitTargets = set()
+                blastTopScore = 0
+                firstHit=True
+                #grab hits with top score
+                for blastLine in blastResults.split("\n"):
+                    splitByTab = blastLine.split("\t")
+                    if len(splitByTab) ==12:
+                        blastHitName = splitByTab[1]
+                        thisBlastScore = float(splitByTab[11])
+                        if firstHit:
+                            blastTopScore = thisBlastScore
+                            firstHit = False
+                        if thisBlastScore == blastTopScore:#
+                            hitTargets.add(blastHitName)
+                        else:
+                            break
+                    
+                #print hitTargets   
+                    
+                        
+               #     print splitByTab[1],splitByTab[11]
+                #sort for top hit
+                keydict = dict(zip(blastHitList, blastScoreList))
+                blastHitList.sort(key=keydict.get)
+               # print blastHitList
+    
+    
+                    
+                #resultsSplitByTab = blastResults.split("\t")
+                
+                #print resultsSplitByLine
+                
+                
+                
+                
+                #get a set of all targets that this cluster hits
+                #hitTargets = self._calc_hits_against_ref_with_blast(query=clusterSequence, references=refs)
+                
+                
+                if len(hitTargets) > 0:
+                    mappedReads += numReadsInCluster
+    ###                print "MappedReads = %d (this cluster size: %d)\t(%s)"%(mappedReads, numReadsInCluster, hitTargets)
+                    #check that it doesn't map to any of the omitHitTo set. If it does, chuck the cluster away
+                    keepCluster = True
+                    for target in hitTargets:
+                        if target in omitHitsTo:
+                            keepCluster = False
+                            break
+                    
+                    #if all is fine, add hits to each hit target   
+                    if keepCluster:
+                        #add to mappedClusterHistogram
+                        if numReadsInCluster not in mappedClusterHistogram:
+                            mappedClusterHistogram[numReadsInCluster] = 1
+                        else:
+                            mappedClusterHistogram[numReadsInCluster] +=1
+                        score = numReadsInCluster #1 hit per read in cluster
+                        for target in hitTargets:
+                            if target not in referenceHitCounts:
+                                referenceHitCounts[target] =score
+                            else:
+                                referenceHitCounts[target]+=score
+                #if doesn't map, write to unmapped reads file
+                elif unmappedFile != None:
+                    if numReadsInCluster not in unmappedClusterHistogram:
+                        unmappedClusterHistogram[numReadsInCluster] = 1
+                    else:
+                        unmappedClusterHistogram[numReadsInCluster] +=1
+                    
+    ###                if numReadsInCluster > 10:
+    ###                    print "Cluster of size %d not mapped!:\t%s"%(numReadsInCluster,clusterSequence)
+                    unmappedFile.write("%d\t%s\n"%(numReadsInCluster, clusterSequence))
+
+        #add to _counts
+        self._counts[clusters.name] = referenceHitCounts
+        self._totalReads[clusters.name] = totalCount
+        self._mappedReadCounts[clusters.name] = mappedReads
+###        print ">>> MappedReads[%s] = %d (this cluster size: %d)\t(%s)"%(clusters.name,mappedReads, numReadsInCluster, hitTargets)
+        
+        if unmappedFile != None:
+            unmappedFile.close()
+            
+
+    def align_by_blat(self,clusters,refs,omitHitsTo = set(), unmappedFileName = None):
+        '''
+        derives hits from clusters to references but uses blat - experimental so don't use for production!
+        
+        args:
+            clusters    Clusters class object
+            references  Reference class object
+            omitHitsTo  A set of geneNames (abbreviated!). Any reads that map to these genes (regardless of where else they map) will not be considered
+        '''
+
+        
+        logging.info('Aligning %d clusters from %s to %d references with BLAST, omitting reads hitting %s',len(clusters.get_clusters()), clusters.name, len(refs.get_references()), omitHitsTo)
+        
+        
+###        print "*************"
+###        print "**** %s"%clusters.name
+###        print "*************"
+        #prepare variables
+        referenceHitCounts = {} #{referenceSequenceName : hitCount}
+        queryClusters = clusters.get_clusters()
+        totalCount = 0
+        mappedReads = 0
+        
+        #if writing unmapped to a file, open that file
+        unmappedFile = None
+        if unmappedFileName != None:
+            unmappedFile = open(unmappedFileName,"w")
+            
+        #variables for generating stats histograms (more of a debugging technique at the mo, but could be good in final reports)
+        unmappedClusterHistogram = {}
+        mappedClusterHistogram = {}
+        #For each cluster of reads, see if they match any reference sequences
+        for cluster in queryClusters.items():
+            
+            clusterSequence = cluster[0]
+            numReadsInCluster = cluster[1]
+            totalCount+= numReadsInCluster
+            #create fasta entry
+            
+            if numReadsInCluster >1:
+                #cmd = blat DRB_exon2_3.8.0.fa  A05_clusters.fa A05_noHead.psl -noHead -fastMap -minScore=130 -minIdentity=100
+                cmd = "echo %s | blastn -query - -db /scratch/sh695/HLA/subject.fa -ungapped -outfmt 6 "%clusterSequence.strip()
+                #print cmd
+             #   blastResults = subprocess.check_output(cmd,shell=True)
+                status, blastResults = commands.getstatusoutput(cmd)
+                #get top hits
+                blastScoreList = []
+                blastHitList = []
+                #print blastResults
+                hitTargets = set()
+                blastTopScore = 0
+                firstHit=True
+                #grab hits with top score
+                for blastLine in blastResults.split("\n"):
+                    splitByTab = blastLine.split("\t")
+                    if len(splitByTab) ==12:
+                        blastHitName = splitByTab[1]
+                        thisBlastScore = float(splitByTab[11])
+                        if firstHit:
+                            blastTopScore = thisBlastScore
+                            firstHit = False
+                        if thisBlastScore == blastTopScore:#
+                            hitTargets.add(blastHitName)
+                        else:
+                            break
+                    
+                #print hitTargets   
+                    
+                        
+               #     print splitByTab[1],splitByTab[11]
+                #sort for top hit
+                keydict = dict(zip(blastHitList, blastScoreList))
+                blastHitList.sort(key=keydict.get)
+               # print blastHitList
+    
+    
+                    
+                #resultsSplitByTab = blastResults.split("\t")
+                
+                #print resultsSplitByLine
+                
+                
+                
+                
+                #get a set of all targets that this cluster hits
+                #hitTargets = self._calc_hits_against_ref_with_blast(query=clusterSequence, references=refs)
+                
+                
+                if len(hitTargets) > 0:
+                    mappedReads += numReadsInCluster
+    ###                print "MappedReads = %d (this cluster size: %d)\t(%s)"%(mappedReads, numReadsInCluster, hitTargets)
+                    #check that it doesn't map to any of the omitHitTo set. If it does, chuck the cluster away
+                    keepCluster = True
+                    for target in hitTargets:
+                        if target in omitHitsTo:
+                            keepCluster = False
+                            break
+                    
+                    #if all is fine, add hits to each hit target   
+                    if keepCluster:
+                        #add to mappedClusterHistogram
+                        if numReadsInCluster not in mappedClusterHistogram:
+                            mappedClusterHistogram[numReadsInCluster] = 1
+                        else:
+                            mappedClusterHistogram[numReadsInCluster] +=1
+                        score = numReadsInCluster #1 hit per read in cluster
+                        for target in hitTargets:
+                            if target not in referenceHitCounts:
+                                referenceHitCounts[target] =score
+                            else:
+                                referenceHitCounts[target]+=score
+                #if doesn't map, write to unmapped reads file
+                elif unmappedFile != None:
+                    if numReadsInCluster not in unmappedClusterHistogram:
+                        unmappedClusterHistogram[numReadsInCluster] = 1
+                    else:
+                        unmappedClusterHistogram[numReadsInCluster] +=1
+                    
+    ###                if numReadsInCluster > 10:
+    ###                    print "Cluster of size %d not mapped!:\t%s"%(numReadsInCluster,clusterSequence)
+                    unmappedFile.write("%d\t%s\n"%(numReadsInCluster, clusterSequence))
+
+        #add to _counts
+        self._counts[clusters.name] = referenceHitCounts
+        self._totalReads[clusters.name] = totalCount
+        self._mappedReadCounts[clusters.name] = mappedReads
+###        print ">>> MappedReads[%s] = %d (this cluster size: %d)\t(%s)"%(clusters.name,mappedReads, numReadsInCluster, hitTargets)
+        
+        if unmappedFile != None:
+            unmappedFile.close()
+            
+            
+            
         
     def modify_scores_for_read_imbalances(self):
         #calculate read imbalances
@@ -241,7 +550,10 @@ class DnaAligner(Aligner):
         for entry in self._mappedReadCounts.items():
             ampliconName = entry[0]
             count = entry[1]
-            modifiers.append((total*1.0)/(count*1.0))
+            if count > 0:
+                modifiers.append((total*1.0)/(count*1.0))
+            else:
+                modifiers.append(0.0)   #TODO: Is this correct?!
             
         #Now modify all results
         modifiedResults = {}
