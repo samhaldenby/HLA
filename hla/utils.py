@@ -1,6 +1,6 @@
-from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
-from Bio import SeqIO
+#from Bio.Seq import Seq
+#from Bio.Alphabet import generic_dna
+#from Bio import SeqIO
 
 '''
 Created on 23 May 2012

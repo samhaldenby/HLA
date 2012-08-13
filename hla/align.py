@@ -222,7 +222,7 @@ class DnaAligner(Aligner):
                 #check that it doesn't map to any of the omitHitTo set. If it does, chuck the cluster away
                 keepCluster = True
                 for target in hitTargets:
-                    if target in omitHitsTo:
+                    if target in omitHitsTo or "DRB3" in target or "DRB5" in target:
                         keepCluster = False
                         break
                 

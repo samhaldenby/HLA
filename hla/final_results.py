@@ -18,6 +18,7 @@ class FinalResultBundle(object):
     comments = ""   
     calledAlleles = ""
     accepted_alleles = []
+    top_alleles = []
     
     
     
@@ -56,6 +57,8 @@ class FinalResultBundle(object):
         
         for i in range(0,2):
             result = self.resultsSortedList[i]
+            modifiedName = "%s%s"%(result.targetName[5:7],result.targetName[8:])
+            self.top_alleles.append(modifiedName)
             if result.status == Status.Pass():
                 #carve down allele
                 modifiedName = "%s%s"%(result.targetName[5:7],result.targetName[8:])

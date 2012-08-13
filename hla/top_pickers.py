@@ -42,6 +42,7 @@ def pick_Nx(hitCounts, proportion=50):
         #print entry,hitCounts[entry],totalScoreDict[entry]
         if drb1RegEx.match(entry) == None:
             compensationForOtherDrbs+=1
+            #topResults[entry] = hitCounts[entry]
         else:
             topResults[entry] = hitCounts[entry]
         runningTotal+=totalScoreDict[entry]

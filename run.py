@@ -1,16 +1,39 @@
+import sys
+#sys.path.append('/home/sh695/Documents/Scripts/PythonScripts/newHla')
 import logging
 import hla.cluster as cluster
 import hla.reference as reference
 import hla.align as align
 from hla.top_pickers import *
 from hla.rankers import *
+import hla.primer_info as primer_info
 from hla.validation import *
 import hla.final_results as final_results
 from hla.allele_status import Status
 import hla.contaminants as contam
 from optparse import OptionParser
-import sys
+
 import copy
+import os
+
+
+
+
+##Info on how reads should be trimmed
+#class PrimerInfo:
+#    name = ""
+#    trimFrom = None
+#    trimTo = None
+#    
+#    def __init__(self,name,trimFrom,trimTo):
+#        self.name = name
+#        self.trimFrom = trimFrom
+#        self.trimTo = trimTo
+        
+
+
+
+
 
 ###NOTES
 # 1 - The program has trouble in detecting 0408/0901....is this a primer issue? Compare 04XX with 0408 and see
@@ -20,7 +43,6 @@ import copy
 #    3) Appears that ranking by cross division is not being carried out, i.e. not multiplying by rankings. Check this by changing N30 to N50+
 #        3a) Trying this now - Done! Makes no difference!
 def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResults=None):
-    
     '''
     Main function for running hla analysis
     
@@ -50,36 +72,75 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     r = reference.DnaReference()     #TODO: Currently, Use this even if it is an AA reference
     r.load_reference_tabbed(referenceName)#("/home/sh695/Documents/Scripts/PythonScripts/HLA/modules/subject.txt")
 
-
-    #load FQs into clusters
-    c1 = cluster.DnaClusters()
-    c1.set_read_region(0,160) #orig[0,160]
-    c1.load_from_fq("%s2_2_F.fq"%wellPath)
-    c2 = cluster.DnaClusters()
-    c2.set_read_region(10,150) #orig [0,150]
-    c2.load_from_fq("%s2_4_F.fq"%wellPath)
-    c3 = cluster.DnaClusters()
-    c3.set_read_region(33,200)  #orig [33,200]
-    c3.load_from_fq("%s2_4_R.fq"%wellPath)
-    c4 = cluster.DnaClusters()
-    c4.set_read_region(70,232) #orig [70,232]
-    c4.load_from_fq("%s2_5_R.fq"%wellPath)
+    # 1 - grab fastq file names
+    logging.info('Grabbing file names from %s',wellPath)
+    fqFileNames = []
+    for fqFileName in os.listdir(wellPath):
+        if fqFileName.endswith(".fq"):# and "2_1" in fqFileName and "2_3" not in fqFileName:
+            fqFileNames.append(fqFileName)
+            logging.info(" -> %s",fqFileName)
+    
+    clusts = {}
+    #for each fastq file, prepare clusters
+    for fqFileName in fqFileNames:
+        #determine what primer was used
+        
+        for primerInfo in primerMap:
+            logging.info('Looking for %s in %s',primerInfo,fqFileName)
+            if primerInfo in fqFileName:
+                logging.info('found!')
+                clusts[primerInfo] = cluster.DnaClusters()
+                currCluster = clusts[primerInfo]
+                info = primerMap[primerInfo]
+                currCluster.set_read_region(info.trimFrom, info.trimTo)
+                currCluster.load_from_fq("%s%s"%(wellPath,fqFileName));
+            else:
+                logging.info('not found!!!')
+                
+        
+    
+    
+#    print clusters
+#    sys.exit()
+#    #load FQs into clusters
+#    c1 = cluster.DnaClusters()
+#    c1.set_read_region(0,160) #orig[0,160]
+#    c1.load_from_fq("%s2_2_F.fq"%wellPath)
+#    c2 = cluster.DnaClusters()
+#    c2.set_read_region(10,150) #orig [0,150]
+#    c2.load_from_fq("%s2_4_F.fq"%wellPath)
+#    c3 = cluster.DnaClusters()
+#    c3.set_read_region(33,200)  #orig [33,200]
+#    c3.load_from_fq("%s2_4_R.fq"%wellPath)
+#    c4 = cluster.DnaClusters()
+#    c4.set_read_region(70,232) #orig [70,232]
+#    c4.load_from_fq("%s2_5_R.fq"%wellPath)
     
     #export clusters
+    
     minClusterSizeForExport = 2
-    c1.export_clusters("%s_2_2_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
-    c2.export_clusters("%s_2_4_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
-    c3.export_clusters("%s_2_4_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
-    c4.export_clusters("%s_2_5_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
+    for entry in clusts.items():
+        id = entry[0]
+        clust = entry[1]
+        clust.export_clusters("%s_%s_clusters_%s.fa"%(wellId,id,minClusterSizeForExport),minClusterSizeForExport);
+#    c1.export_clusters("%s_2_2_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
+#    c2.export_clusters("%s_2_4_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
+#    c3.export_clusters("%s_2_4_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
+#    c4.export_clusters("%s_2_5_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
    
    
     #create aligner and do initial alignment
     
     a = align.DnaAligner()
-    a.align(c1, r, unmappedFileName = "NM_%s_2_2_F.fa"%wellId)
-    a.align(c2, r, unmappedFileName = "NM_%s_2_4_F.fa"%wellId)
-    a.align(c3, r, unmappedFileName = "NM_%s_2_4_R.fa"%wellId)
-    a.align(c4, r, unmappedFileName = "NM_%s_2_5_R.fa"%wellId)
+    for entry in clusts.items():
+        id = entry[0]
+        clust = entry[1]
+        a.align(clust, r, unmappedFileName = "NM_%s_%s.fa"%(wellId, id));
+    
+#    a.align(c1, r, unmappedFileName = "NM_%s_2_2_F.fa"%wellId)
+#    a.align(c2, r, unmappedFileName = "NM_%s_2_4_F.fa"%wellId)
+#    a.align(c3, r, unmappedFileName = "NM_%s_2_4_R.fa"%wellId)
+#    a.align(c4, r, unmappedFileName = "NM_%s_2_5_R.fa"%wellId)
     a.compile_results()
     
    
@@ -100,7 +161,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     
     #copy raw and modify 
     rawResults = copy.deepcopy(a.get_results())
-    a.modify_scores_for_read_imbalances()
+    #a.modify_scores_for_read_imbalances()
 
     
     #grab top results
@@ -134,10 +195,15 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     
     #realign, omiting r1 top hit
     print "\n* Running 2nd alignment, omitting reads mapping to top scorer from 1st (%s)"%openList[0]
-    a.align(c1,r, openList[0])
-    a.align(c2,r, openList[0])
-    a.align(c3,r, openList[0])
-    a.align(c4,r, openList[0])
+    
+    for entry in clusts.items():
+        id = entry[0]
+        clust = entry[1]
+        a.align(clust, r, openList[0])
+#    a.align(c1,r, openList[0])
+#    a.align(c2,r, openList[0])
+#    a.align(c3,r, openList[0])
+#    a.align(c4,r, openList[0])
     a.compile_results()
  #   a.modify_scores_for_read_imbalances()
     topHits = pick_Nx(a.get_results(),nX)
@@ -163,10 +229,15 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         
     #realign, omiting r1 second-top hit
     print "\n* Running 3rd alignment, omitting reads mapping to second-top scorer from 1st (%s)"%openList[1]
-    a.align(c1,r, openList[1])
-    a.align(c2,r, openList[1])
-    a.align(c3,r, openList[1])
-    a.align(c4,r, openList[1])
+    for entry in clusts.items():
+        id = entry[0]
+        clust = entry[1]
+        a.align(clust, r, openList[1])
+    
+#    a.align(c1,r, openList[1])
+#    a.align(c2,r, openList[1])
+#    a.align(c3,r, openList[1])
+#    a.align(c4,r, openList[1])
     a.compile_results()
 #    a.modify_scores_for_read_imbalances()
     topHits = pick_Nx(a.get_results(),nX)
@@ -196,10 +267,14 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     #print "remainingToCheck = %d"%remainingToCheck
     while remainingToCheck != 0:
         print "\n* Running final alignments, omitting next target from open list (%s)"%(openList[len(openList)-remainingToCheck])
-        a.align(c1,r, openList[len(openList)-remainingToCheck])
-        a.align(c2,r, openList[len(openList)-remainingToCheck])
-        a.align(c3,r, openList[len(openList)-remainingToCheck])
-        a.align(c4,r, openList[len(openList)-remainingToCheck])
+        for entry in clusts.items():
+            id = entry[0]
+            clust = entry[1]
+            a.align(clust, r, openList[len(openList)-remainingToCheck])
+#        a.align(c1,r, openList[len(openList)-remainingToCheck])
+#        a.align(c2,r, openList[len(openList)-remainingToCheck])
+#        a.align(c3,r, openList[len(openList)-remainingToCheck])
+#        a.align(c4,r, openList[len(openList)-remainingToCheck])
         a.compile_results()
 #        a.modify_scores_for_read_imbalances()
         topHits = pick_Nx(a.get_results(),nX)
@@ -224,7 +299,8 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         
     #comparing to dynal results? 
     if dynalResults != None:
-        compare_with_dynal(resultsBundle, wellId, dynalResults)
+        #compare_with_dynal(resultsBundle, wellId, dynalResults)
+        compare_with_cam2(resultsBundle, wellId, dynalResults)
 
    
     print ">> _______________"
@@ -367,18 +443,30 @@ def process_all_results(rawResults, results, openList): #results is [{name:score
 #    return retHits
 
 #Parse command line options
+if __name__ == '__main__':
+    parser = OptionParser()
+    parser.add_option("-R", "--reference", dest="referenceName", action="store", help="tab-separated (name seq) reference file name", metavar="FILE")
+    parser.add_option("-d", "--inputPath", dest="inputPath", action="store", help="path to directory containing well directories, e.g. /data/A04/MiSeq/", metavar="PATH")
+    parser.add_option("-w", "--well", dest="wellId", action="store", help="well ID (e.g. D04)", metavar="STRING")
+    parser.add_option("-L", "--logTag", dest="logTag", help="log file tag", metavar="STRING")
+    parser.add_option("-o", "--output", dest="outputTag", help="output file tag", metavar="STRING")
+    parser.add_option("-r", "--dynal-results", dest="dynalResults", help="Previous dynal results to compare results to", metavar="FILE")
+    (options,args) = parser.parse_args()
+    
+    
+    
+    
 
-parser = OptionParser()
-parser.add_option("-R", "--reference", dest="referenceName", action="store", help="tab-separated (name seq) reference file name", metavar="FILE")
-parser.add_option("-d", "--inputPath", dest="inputPath", action="store", help="path to directory containing well directories, e.g. /data/A04/MiSeq/", metavar="PATH")
-parser.add_option("-w", "--well", dest="wellId", action="store", help="well ID (e.g. D04)", metavar="STRING")
-parser.add_option("-L", "--logTag", dest="logTag", help="log file tag", metavar="STRING")
-parser.add_option("-o", "--output", dest="outputTag", help="output file tag", metavar="STRING")
-parser.add_option("-r", "--dynal-results", dest="dynalResults", help="Previous dynal results to compare results to", metavar="FILE")
-(options,args) = parser.parse_args()
-
-#print options.dynalResults
-run_analysis(referenceName=options.referenceName, inputPath=options.inputPath, wellId=options.wellId, logTag=options.logTag, outputTag=options.outputTag, dynalResults=options.dynalResults)
+    
+    primerMap = {}
+    #primerMap["2_2_F"] = primer_info.PrimerInfo("2_2_F",0,160)
+    primerMap["2_4_F"] = primer_info.PrimerInfo("2_4_F",1,150) 
+    primerMap["2_4_R"] = primer_info.PrimerInfo("2_4_R",50,190) #50,190
+    primerMap["2_5_R"] = primer_info.PrimerInfo("2_5_R",70,200)
+    primerMap["2_1_F"] = primer_info.PrimerInfo("2_1_F",70,180) #80,180
+    
+    
+    run_analysis(referenceName=options.referenceName, inputPath=options.inputPath, wellId=options.wellId, logTag=options.logTag, outputTag=options.outputTag, dynalResults=options.dynalResults)
 
 
 

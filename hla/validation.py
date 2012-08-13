@@ -5,7 +5,60 @@ Created on 21 May 2012
 @author: sh695
 '''
 
-
+def compare_with_cam2(resultsBundle, wellId, cam2FileName):
+    logging.info('Comparing to Cam2 results')
+    
+    print ">R> %s ***"%wellId
+    
+    try:
+        cam2File = open(cam2FileName)
+    except IOError:
+        logging.error("Unable to open %s",cam2FileName)
+    
+    
+    #grab correct line from dynal results
+    dynalResultsLine = ""
+    for line in cam2File:
+        if wellId in line:
+            dynalResultsLine = line.strip()
+            
+    dynalResultsLineSplit = dynalResultsLine.split("\t")
+    firstDynalHit = dynalResultsLineSplit[1]
+    secondDynalHit = dynalResultsLineSplit[2]
+    
+    #compile dynal results
+    #dynalResults = set()
+    #dynalResults.add(firstDynalHit)
+    #dynalResults.add(secondDynalHit)
+    dynalResults = list()
+    dynalResults.append(firstDynalHit)
+    dynalResults.append(secondDynalHit)
+    
+    print ">R>",dynalResults
+    
+    
+    score = 0
+    for allele in resultsBundle.top_alleles:
+        found = False
+        #trim down to major type
+        majorType = "CT"
+        print "allele: ",allele
+    
+        majorType = allele[:2]
+        print "Major type: %s -> %s"%(allele,majorType) 
+        for i in range(0,len(dynalResults)):
+            print "DYNAL_RESULTS: ",dynalResults
+            if majorType in dynalResults[i]:
+                dynalResults[i] = "DONE"
+                
+                found = True
+                score+=1
+                print ">R> %s\tYes"%allele
+                break
+        if not found:
+            print ">R> %s\tNo"%allele
+    print ">R>>\t%s\t%s"%(wellId,score)
+        
 def compare_with_dynal(resultsBundle, wellId, dynalFileName):
     
     logging.info('Comparing to dynal results')
@@ -43,6 +96,8 @@ def compare_with_dynal(resultsBundle, wellId, dynalFileName):
             print ">> %s\tYes"%allele
         else:
             print ">> %s\tNo"%allele
+            
+    cam2File.close()
     
 #    #compile these results
 #    myResults = set()

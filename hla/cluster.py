@@ -146,22 +146,41 @@ class DnaClusters(Clusters):
         
         #parse file
         dnaRegEx = re.compile('^[ACGTN]+$')
+        drb3=0
+        drb5=0
         for line in fqFile:
             isSequenceLine = dnaRegEx.match(line) != None
             if isSequenceLine is True:                
-                self.totalReads+=1
-                sequence = line.strip()
-                if trimming:
-                    sequence = line[self._firstBase : self._lastBase]
-                if sequence not in self._clusters:
-                    self._clusters[sequence] = 1
-                else:
-                    self._clusters[sequence] +=1
+                keepLine = True
+                #throw away if 2_1_F and is DRB5 or DRB3
+                if self.name == "2_1_F":
+                   # print "IN 2_1"
+                    sequence = line.strip()
+                    if sequence[1]=="C" and sequence[8]=="G" and sequence[19]!="T":
+                      #  print ">> DRB3\t%s"%(sequence)
+                        drb3+=1
+                        keepLine = False
+                    elif sequence [1]=="C" and sequence[8]=="T":
+                      #  print ">> DRB5\t%s"%(sequence)
+                        keepLine = False
+                        drb5+=1
+                    
+                keepLine = True
+                if keepLine:    
+                    self.totalReads+=1
+                    sequence = line.strip()
+                    if trimming:
+                        sequence = line[self._firstBase : self._lastBase]
+                    if sequence not in self._clusters:
+                        self._clusters[sequence] = 1
+                    else:
+                        self._clusters[sequence] +=1
        
         
         #clean-up
         fqFile.close()
         self.totalClusters = len(self._clusters)
+        print "drb3s: %d\tdrb5s: %d"%(drb3, drb5)
         logging.info('Generated %d clusters from %d sequences', self.totalClusters, self.totalReads)
    
                 

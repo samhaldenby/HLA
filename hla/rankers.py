@@ -167,7 +167,7 @@ def simple_rank_results(results):
                 score*=math.log(s,2)
         newScoreMap[name] = score
     
-    
+    print "SCORING!"
     #Sort results in order and return
     returnResults = {}
     for entry in sorted(newScoreMap, key=newScoreMap.get, reverse=True):

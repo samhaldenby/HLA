@@ -1,8 +1,8 @@
 import logging
 from hla.utils import *
-from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
-from Bio import SeqIO
+#from Bio.Seq import Seq
+#from Bio.Alphabet import generic_dna
+#from Bio import SeqIO
 
 '''
 Created on 17 May 2012
