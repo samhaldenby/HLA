@@ -17,7 +17,7 @@ class Reference(object):
     '''
     
 
-    _refs = {}#{name:sequence} or {name:[translation1, translation2, translation3]}
+    _refs = {}#{name:[sequence1,sequence2,..,sequenceN} or {name:[translation1, translation2, translation3]}
     
     
     def load_reference_tabbed(self, refName):

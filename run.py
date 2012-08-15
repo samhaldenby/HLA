@@ -100,47 +100,22 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         
     
     
-#    print clusters
-#    sys.exit()
-#    #load FQs into clusters
-#    c1 = cluster.DnaClusters()
-#    c1.set_read_region(0,160) #orig[0,160]
-#    c1.load_from_fq("%s2_2_F.fq"%wellPath)
-#    c2 = cluster.DnaClusters()
-#    c2.set_read_region(10,150) #orig [0,150]
-#    c2.load_from_fq("%s2_4_F.fq"%wellPath)
-#    c3 = cluster.DnaClusters()
-#    c3.set_read_region(33,200)  #orig [33,200]
-#    c3.load_from_fq("%s2_4_R.fq"%wellPath)
-#    c4 = cluster.DnaClusters()
-#    c4.set_read_region(70,232) #orig [70,232]
-#    c4.load_from_fq("%s2_5_R.fq"%wellPath)
-    
     #export clusters
-    
     minClusterSizeForExport = 2
     for entry in clusts.items():
         id = entry[0]
         clust = entry[1]
         clust.export_clusters("%s_%s_clusters_%s.fa"%(wellId,id,minClusterSizeForExport),minClusterSizeForExport);
-#    c1.export_clusters("%s_2_2_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
-#    c2.export_clusters("%s_2_4_F_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
-#    c3.export_clusters("%s_2_4_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
-#    c4.export_clusters("%s_2_5_R_clusters_%d.fa"%(wellId, minClusterSizeForExport), minClusterSizeForExport)
-   
-   
+
+
+
     #create aligner and do initial alignment
-    
     a = align.DnaAligner()
     for entry in clusts.items():
         id = entry[0]
         clust = entry[1]
         a.align(clust, r, unmappedFileName = "NM_%s_%s.fa"%(wellId, id));
     
-#    a.align(c1, r, unmappedFileName = "NM_%s_2_2_F.fa"%wellId)
-#    a.align(c2, r, unmappedFileName = "NM_%s_2_4_F.fa"%wellId)
-#    a.align(c3, r, unmappedFileName = "NM_%s_2_4_R.fa"%wellId)
-#    a.align(c4, r, unmappedFileName = "NM_%s_2_5_R.fa"%wellId)
     a.compile_results()
     
    
@@ -161,27 +136,28 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     
     #copy raw and modify 
     rawResults = copy.deepcopy(a.get_results())
-    #a.modify_scores_for_read_imbalances()
 
     
     #grab top results
     print "* Running 1st alignment"
     topHits = pick_Nx(a.get_results(),nX)
     
-    #topHits = normalise_hits(topHits,realResults)
+    
     #prepare list of results
-    results =[]
+    #results =[]
     #rank them
     #results.append(rank_results(topHits))
-    
+    #allRankedResults = [] #will be a list of all results after all top pickers have been selected and reanalysis is complete
+    allRankedResults = {} #{omitted target : Results}
+    allRankedResults["First"] =rank_results(topHits)
 
     openList = []
     topHitNames = set()
     
     #grab top 2 hits and add to open list
-    for entry in sorted(results[-1], key=results[-1].get, reverse=True):
+    for entry in sorted(allRankedResults["First"], key=allRankedResults["First"].get, reverse=True):
         name = entry
-        score = results[-1][entry]
+        score = allRankedResults["First"][entry]
         print name, score
         if len(topHitNames)<2:
             openList.append(name)
@@ -191,9 +167,7 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         
     print "Open list after 1st run: %s"%openList
     
-    #allRankedResults = [] #will be a list of all results after all top pickers have been selected and reanalysis is complete
-    allRankedResults = {} #{omitted target : Results}
-    allRankedResults["First"] =rank_results(topHits)
+    
  #   allSepResults = {} # {omitted target : [0,122,12314,124]}
  #   allSepResults["First"]= firstResults
         
@@ -206,21 +180,17 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         id = entry[0]
         clust = entry[1]
         a.align(clust, r, openList[0])
-#    a.align(c1,r, openList[0])
-#    a.align(c2,r, openList[0])
-#    a.align(c3,r, openList[0])
-#    a.align(c4,r, openList[0])
+
     a.compile_results()
- #   a.modify_scores_for_read_imbalances()
     topHits = pick_Nx(a.get_results(),nX)
     #topHits = normalise_hits(topHits,realResults)
     #results.append(rank_results(topHits))
     allRankedResults[openList[0]] =rank_results(topHits)
     #now see if there is a new top hit not already on open list
     firstLine = True
-    for entry in sorted(results[-1], key=results[-1].get, reverse=True):
+    for entry in sorted(allRankedResults[openList[0]], key=allRankedResults[openList[0]].get, reverse=True):
         name = entry
-        score = results[-1][entry]
+        score = allRankedResults[openList[0]][entry]
         if firstLine:
             if name not in openList:
                 print "%s is new top hit. Not already in open list. Adding"%name
@@ -253,9 +223,9 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
     allRankedResults[openList[1]] =rank_results(topHits)
     #now see if there is a new top hit not already on open list
     firstLine = True
-    for entry in sorted(results[-1], key=results[-1].get, reverse=True):
+    for entry in sorted(allRankedResults[openList[1]], key=allRankedResults[openList[1]].get, reverse=True):
         name = entry
-        score = results[-1][entry]
+        score = allRankedResults[openList[1]][entry]
         if firstLine:
            # print "WE ARE NOW CHECKING IF %s IS ON OPEN LIST %s"%(name,openList)
             if name not in openList:
