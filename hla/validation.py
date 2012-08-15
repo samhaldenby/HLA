@@ -59,45 +59,47 @@ def compare_with_cam2(resultsBundle, wellId, cam2FileName):
             print ">R> %s\tNo"%allele
     print ">R>>\t%s\t%s"%(wellId,score)
         
-def compare_with_dynal(resultsBundle, wellId, dynalFileName):
+#def compare_with_dynal(resultsBundle, wellId, dynalFileName):
+#    
+#    logging.info('Comparing to dynal results')
+#                 
+#    print "*** %s ***"%wellId
+#                 
+#    #open dynal results file
+#    try:
+#        dynalFile = open(dynalFileName)
+#    except IOError:
+#        logging.error("Unable to open %s",dynalFileName)
+#    
+#    
+#    #grab correct line from dynal results
+#    dynalResultsLine = ""
+#    for line in dynalFile:
+#        if wellId in line:
+#            dynalResultsLine = line.strip()
+#            
+#    dynalResultsLineSplit = dynalResultsLine.split("\t")
+#    firstDynalHit = dynalResultsLineSplit[1]
+#    secondDynalHit = dynalResultsLineSplit[2]
+#    
+#    #compile dynal results
+#    dynalResults = set()
+#    dynalResults.add(firstDynalHit)
+#    dynalResults.add(secondDynalHit)
+#    print ">>",dynalResults
+#    
+#    
+#    score = 0
+#    for allele in resultsBundle.accepted_alleles:
+#        if allele in dynalResults:
+#            score+=1
+#            print ">> %s\tYes"%allele
+#        else:
+#            print ">> %s\tNo"%allele
+#            
+#    cam2File.close()
     
-    logging.info('Comparing to dynal results')
-                 
-    print "*** %s ***"%wellId
-                 
-    #open dynal results file
-    try:
-        dynalFile = open(dynalFileName)
-    except IOError:
-        logging.error("Unable to open %s",dynalFileName)
-    
-    
-    #grab correct line from dynal results
-    dynalResultsLine = ""
-    for line in dynalFile:
-        if wellId in line:
-            dynalResultsLine = line.strip()
-            
-    dynalResultsLineSplit = dynalResultsLine.split("\t")
-    firstDynalHit = dynalResultsLineSplit[1]
-    secondDynalHit = dynalResultsLineSplit[2]
-    
-    #compile dynal results
-    dynalResults = set()
-    dynalResults.add(firstDynalHit)
-    dynalResults.add(secondDynalHit)
-    print ">>",dynalResults
-    
-    
-    score = 0
-    for allele in resultsBundle.accepted_alleles:
-        if allele in dynalResults:
-            score+=1
-            print ">> %s\tYes"%allele
-        else:
-            print ">> %s\tNo"%allele
-            
-    cam2File.close()
+        
     
 #    #compile these results
 #    myResults = set()
@@ -121,7 +123,28 @@ def compare_with_dynal(resultsBundle, wellId, dynalFileName):
 #    print ">> Score:\t\t\t\t\t\t\t\t\t%d"% score
         
     
-    
+def calc_score_ratios(finalBundle):
+    top2 =0
+    scores= []
+    for entry in sorted(finalBundle.results.iteritems(), key=lambda (x,y): float(x), reverse=True):
+        score = entry[0]
+        result = entry[1]
+        scores.append(score)
+        print score,result
+        
+        
+        top2 +=1
+        if top2==2:
+            break
+        
+    totScore = sum(scores)
+    for score in scores:
+        print ">R>>\t",score/totScore
+#        self.resultsSortedList.append(result)
+#    for result in finalBundle.results:
+#        print "ASDFASFSV: ",result
+        
+        
     
     
         
