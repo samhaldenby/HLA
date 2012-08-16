@@ -21,6 +21,8 @@ class Aligner(object):
     _totalReads = {}#{clusterName : numOfReadsInTotal}
     _mappedReadCounts = {}#{clusterName : numOfMappedReads}
     
+    Order = [""] * 4
+    
     def align(self,clusters,refs, omitHitsTo = set()):
         '''
         derives hits from clusters to references
@@ -69,8 +71,12 @@ class Aligner(object):
         #get list of name of all genes that were hit
         hitGenes = set()
         for dataSet in self._counts.items():
-            for entry in dataSet[1].items():
-                hitGenes.add(entry[0])
+            clusterName = dataSet[0]
+            print "<<< CLUSTERNAME: ", clusterName
+            hits = dataSet[1]
+            for entry in hits.items():
+                targetName = entry[0]
+                hitGenes.add(targetName)
                 
         #print "Found %d genes"%len(hitGenes)
         
@@ -80,11 +86,15 @@ class Aligner(object):
             self._results[gene]=[0] * numReads
             counter = 0
             for dataSet in self._counts.items():
-                if gene in dataSet[1]:
-                    self._results[gene][counter] = dataSet[1][gene]
+                clusterName = dataSet[0]
+                hits = dataSet[1]
+                Aligner.Order[counter]=clusterName
+                if gene in hits:
+                    self._results[gene][counter] = hits[gene]
                 #else:
                 #    self._results[gene][counter]
                 counter+=1
+        print Aligner.Order
             #print "%s\t%s\t%.2f" %(gene, self._results[gene],sum(self._results[gene]))
             
 
@@ -185,7 +195,7 @@ class DnaAligner(Aligner):
 
         
         logging.info('Aligning %d clusters from %s to %d references, omitting reads hitting %s',len(clusters.get_clusters()), clusters.name, len(refs.get_references()), omitHitsTo)
-        
+        print ">>>> ORDER: ",clusters.name
         
 ###        print "*************"
 ###        print "**** %s"%clusters.name
@@ -206,6 +216,7 @@ class DnaAligner(Aligner):
         mappedClusterHistogram = {}
         #For each cluster of reads, see if they match any reference sequences
         for cluster in queryClusters.items():
+            
             clusterSequence = cluster[0]
             numReadsInCluster = cluster[1]
             totalCount+= numReadsInCluster

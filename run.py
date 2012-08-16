@@ -16,7 +16,7 @@ from optparse import OptionParser
 import copy
 import os
 
-
+primerRunningOrder = []
 
 
 ##Info on how reads should be trimmed
@@ -88,11 +88,14 @@ def run_analysis(referenceName,  inputPath, wellId, logTag, outputTag, dynalResu
         for primerInfo in primerMap:
             logging.info('Looking for %s in %s',primerInfo,fqFileName)
             if primerInfo in fqFileName:
+                primerRunningOrder.append(primerInfo)
                 logging.info('found!')
                 clusts[primerInfo] = cluster.DnaClusters()
                 currCluster = clusts[primerInfo]
                 info = primerMap[primerInfo]
+                print ">>SETTING READ REGION"
                 currCluster.set_read_region(info.trimFrom, info.trimTo)
+                print "LOADING FROM FQ"
                 currCluster.load_from_fq("%s%s"%(wellPath,fqFileName));
             else:
                 logging.info('not found!!!')
@@ -447,190 +450,6 @@ def process_all_results2(rawResults, results, openList): #results is [{name:scor
 
 
 
-        
-        
-        
-
-#def process_all_results(rawResults, results, openList): #results is {omitedGene: {name:score}}, openList is [name]
-#    print
-#    print "////////////////Processing results////////////////"
-#    print "OpenList: ",openList
-#    print
-#    print "results: ", results
-#    print
-#    #create map
-#    #scores = {}
-#    originalScores = {}
-#    rejectionList = set()
-#    for gene in openList: #string in []
-#        #scores[gene]=[] 
-#        resultsForThisGene = results[gene]
-#        
-#        for target in openList:  #iterate again to do comparisons
-#            if target !=gene:
-#                if target not in resultsForThisGene:
-#                    print target,"not in",resultsForThisGene
-#                    rejectionList.add(target)
-#                elif resultsForThisGene[target]==0.0:
-#                    print target,"has zero score with",gene
-#                    rejectionList.add(target)
-#                else:
-#                    print target,"has score",resultsForThisGene[target],"with",gene
-#    
-#    #now create accepted list
-#    newOpenList = []
-#    for gene in openList:
-#        if gene not in rejectionList:
-#            newOpenList.append(gene)
-#            
-#    openList = newOpenList
-#                
-#                
-#        for result in results:
-#            if gene in result:  #i.e. if it's not the one being omited, OR!!! if it got no hits.... deal with this later TODO:
-#                scores[gene].append(result[gene])
-#                if gene not in originalScores:
-#                    originalScores[gene]= result[gene]
-#
-#   
-#    
-#    #now, make sure all modifier lists are same length (reason they might not be is due to getting 0 hits)
-#    longestList = 0
-#    for s in scores.items():
-#        if len(s[1]) > longestList:
-#            longestList = len(s[1])
-#        
-#    for s in scores.items():
-#        while len(s[1]) < longestList:
-#            s[1].append(0.0)
-#
-#    modifiers = {}
-#    for entry in scores.items():
-#
-#        gene = entry[0]
-#        modifiers[gene]=[]
-#
-#        for result in entry[1]:
-#            modifiers[gene].append(result/originalScores[gene])
-#
-#    #multiply all modifiers by all scores
-#    modifiedScores = {}
-#    unmodifiedScores = {}
-#    #for each gene
-#    for entry in scores.items():
-#        thisScore = 1.0
-#        unmodifiedThisScore = 1.0
-#        geneName = entry[0]
-#        geneScores = entry[1]
-#        #multiply all scores
-#        for s in geneScores:
-#            thisScore *= s
-#            if s>1:
-#                unmodifiedThisScore *=s
-#        #mow multiply by modifiers
-#        
-#
-#        for m in modifiers[geneName]:
-#            thisScore *= m
-#        
-#        #log it
-#        if unmodifiedThisScore > 0:
-#            unmodifiedThisScore = math.log10(unmodifiedThisScore)
-#        if thisScore >0:
-#            thisScore = math.log10(thisScore)
-#            
-#        #divide by number of top hits
-#        thisScore /= len(scores)
-#        unmodifiedThisScore /=len(scores)
-#        modifiedScores[geneName] = thisScore
-#        unmodifiedScores[geneName] = unmodifiedThisScore
-#    
-#    print "***************"
-#    for gene in scores.items():
-#        modifiersForThisOne = modifiers[gene[0]]
-#        print "%s\t%s\t%s"%(gene[0],'\t'.join(map(str,gene[1])), '\t'.join(map(str,modifiersForThisOne)))
-#    print "***************"   
-#    
-#    prevScore = 0
-#    scoreNum=0
-#    finalResults = {} # list of FinalResult class instances
-#    for entry in sorted(modifiedScores, key=modifiedScores.get, reverse=True):
-#        scoreNum +=1
-#        thisScore = modifiedScores[entry]
-#
-#        
-#        status =""
-#        if thisScore >3:
-#            #is there too big a difference between this score and the next highest score?
-#            if prevScore - thisScore > 1:
-#                status = Status.Fail_score_diff() #"FAIL - Score differential failure"
-#            #Is this one of the top 2 scorers?
-#            elif scoreNum <= 2:
-#                status = Status.Pass() #"PASS"
-#            else:
-#                status = Status.Warn_not_top_two() #"WARNING - Pass threshold but not in top 2 alleles"
-#
-#        else:
-#            status = Status.Fail_low_score() #"FAIL - Score too low"
-#        
-#        
-#        #print "RAWRESULTS:",rawResults
-#        #raw_input()
-#        #print "RESULTS:",results
-#        #print ">>%s\t%s\t%s"%(entry, modifiedScores[entry], status) #unmodifiedScores[entry],status
-#        f = final_results.FinalResult()
-#        f.score = modifiedScores[entry]
-#        f.targetName = entry
-#        f.status = status
-#        f.rawCounts = rawResults[entry]
-#        finalResults[f.score]=(f)
-#        
-#                #if score is 0, re-run but omit from open list
-#        if thisScore == 0:
-#            print "ZERO SCORE FOUND - re-analysing"
-#            openList.remove(entry)
-#            #results.remove(entry)
-#            #print "Need to remove %s from raw results which are %s"%(entry,rawResults)
-#            #del rawResults[entry]
-#            resultsBundle = process_all_results(rawResults, results, openList)
-#            return resultsBundle
-#        
-#        print ">>%s\t%s\t%s\t%s"%(entry,modifiedScores[entry],status,rawResults[entry])
-#        prevScore = thisScore
-#        
-#    
-#    resultsBundle = final_results.FinalResultBundle()
-#    resultsBundle.results = finalResults
-#    print "FINAL RESULTS: %s"%(finalResults)
-#            
-#    return resultsBundle
-
-
-    
-    
-        
-
-    
-   
-#def normalise_hits(topHits,realResults):
-#    retHits = {}
-#    for entry in topHits.items():
-#        name = entry[0]
-#        origHits = entry[1]
-#        newHits = []
-#        for i in range(0,len(origHits)):
-#           if realResults[i]==0:
-#               newHits.append(0.0)
-#            else:
-#                mod =  (realResults[i]*1.0)/(sum(realResults)*1.0)
-#                #print "Sum(realResults): ",sum(realResults)
-#                #print "realResults[i]: ",realResults[i]
-#                #print "DenomMod = ",denominatorMod
-#                newHits.append(((origHits[i]*100000)/(realResults[i])) *mod)
-#        retHits[name] = newHits
-#        
-#    return retHits
-
 #Parse command line options
 if __name__ == '__main__':
     parser = OptionParser()
@@ -648,15 +467,15 @@ if __name__ == '__main__':
 
     
     primerMap = {}
-    #primerMap["2_2_F"] = primer_info.PrimerInfo("2_2_F",0,160)
+    primerMap["2_2_F"] = primer_info.PrimerInfo("2_2_F",0,160)
     primerMap["2_4_F"] = primer_info.PrimerInfo("2_4_F",1,150) 
     primerMap["2_4_R"] = primer_info.PrimerInfo("2_4_R",50,190) #50,190
     primerMap["2_5_R"] = primer_info.PrimerInfo("2_5_R",70,200)
-    primerMap["2_1_F"] = primer_info.PrimerInfo("2_1_F",70,180) #80,180
-    
+    #primerMap["2_1_F"] = primer_info.PrimerInfo("2_1_F",-70,-187) #70,180
+    primerMap["2_1_F"] = primer_info.PrimerInfo("2_1_F",70,180) #70,180
     
     run_analysis(referenceName=options.referenceName, inputPath=options.inputPath, wellId=options.wellId, logTag=options.logTag, outputTag=options.outputTag, dynalResults=options.dynalResults)
-
+    #print "DRUM ROLL.....",align.Aligner.Order
     
 
-
+    #print "PRIMER RUNNING ORDER",primerRunningOrder

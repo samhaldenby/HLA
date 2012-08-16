@@ -21,7 +21,7 @@ class Clusters(object):
     _clusters = {} #{read:count}
     _firstBase = -1 #trim all before this position
     _lastBase = -1 #trim all after this position
-    
+    _rangeCountFromForward = True # are coords counted from left to right, or as negatives going right to left from downstream end
     totalReads = 0
     totalClusters = 0
     clustergram = [] #histogram: bin number is number of reads, value in bin is number of clusters containing this many reads
@@ -36,13 +36,19 @@ class Clusters(object):
             first    Start position
             last     End position
         '''
-        
         logging.info('Setting read region: %d-%d',first,last)
         if first >= 0 and last > first:
+            print "**** SETTING RANGE FORWARD"
             self._firstBase = first
             self._lastBase = last
         else:
-            logging.warn('Region out of range. Not set')
+            print "**** SETTING RANGE IN REVERSE"
+            self._rangeCountFromForward = False
+            self._firstBase = first
+            self._lastBase = last
+        
+        #else:
+        #    logging.warn('Region out of range. Not set')
     
     
     def get_clusters(self):
@@ -132,12 +138,13 @@ class DnaClusters(Clusters):
         
         #prepare variables
         self.name = fileName.split("/")[-1].split(".")[0] #e.g. /path/to/myFastq.fq > myFastq
+        print ">>> NAME SET TO %s"%(self.name)
         self._clusters = {}
         self.clustergram = []*0
         self.totalReads = 0
         self.totalClusters = 0
-        trimming = self._firstBase >= 0 and self._lastBase > self._firstBase
-        
+        #trimming = self._firstBase >= 0 and self._lastBase > self._firstBase
+        trimming = True
         #open file
         try:
             fqFile = open(fileName)
@@ -170,7 +177,14 @@ class DnaClusters(Clusters):
                     self.totalReads+=1
                     sequence = line.strip()
                     if trimming:
-                        sequence = line[self._firstBase : self._lastBase]
+                        if self._rangeCountFromForward:
+                            #print "**** HERE AND COUNTING FORWARD"
+                            sequence = line[self._firstBase : self._lastBase]
+                        else:
+                            end = len(line) + self._firstBase
+                            start = len(line) + self._lastBase
+                            sequence = line[start:end]
+                            print "**** HERE AND REVERSE COUNTING"
                     if sequence not in self._clusters:
                         self._clusters[sequence] = 1
                     else:
