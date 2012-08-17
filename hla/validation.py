@@ -1,11 +1,16 @@
 import logging
 import hla.align as align
+from hla.process_results import *
+
 '''
 Created on 21 May 2012
 
 @author: sh695
 '''
 
+
+PROP_DIFF_IN_OVERLAP = 4
+FOLD_DIFF_IN_COUNTS = 4
 def compare_with_cam2(resultsBundle, wellId, cam2FileName):
     logging.info('Comparing to Cam2 results')
     
@@ -123,7 +128,232 @@ def compare_with_cam2(resultsBundle, wellId, cam2FileName):
 #        
 #    print ">> Score:\t\t\t\t\t\t\t\t\t%d"% score
         
+def polish_results(finalBundle):
+    #first, process bundle into corresponding genes, major types, counts and scores
+    scores= []
+    names = []
+    majorTypes = []
+    countsPerAmp = []
+    for entry in sorted(finalBundle.results.iteritems(), key=lambda (x,y): float(x), reverse=True):
+        score = entry[0]
+        result = entry[1]
+        scores.append(score)
+        names.append(result.targetName)
+        majorTypes.append(result.targetName.split(':')[0])
+        countsPerAmp.append(result.rawCounts)
+        print score,result.targetName,result.targetName.split(':')[0]
+        
+        
     
+    bundle = []
+    for na,sc,mt,cpa in zip(names,scores,majorTypes,countsPerAmp):
+        bundle.append({"name" : na, "score" : sc, "majorType" : mt, "countsPerAmp" : cpa})
+        
+    #Now, go through all results in bundle and determine whether any merging (due to ambiguity) should occur
+    while len(bundle)>1:
+        action = determine_action(bundle[0],bundle[1])
+        print "Returned Action: %s"%action
+        if action == "sep":
+            break
+        elif action == "merge":
+            bundle[0] = merge_bundles(bundle[0],bundle[1])
+            del bundle[1]
+        elif "del" in action:
+            nameOfBundleToDelete = action.split('\t')[1]
+            bundleNum = 0
+            print "Going to delete %s"%nameOfBundleToDelete
+            print "Searching..."
+            for b in bundle:
+                print bundleNum,b
+                if type(b["name"]) is list:
+                    print "b is a list"
+                    for n in b["name"]:
+                        print "\t",n
+                        if nameOfBundleToDelete == n:
+                            print "Deleting!"
+                            del bundle[bundleNum]
+                            break
+                else:
+                    print "not a list"
+                    print "\t",b["name"]
+                    if nameOfBundleToDelete == b["name"]:
+                        print "Deleting!"
+                        del bundle[bundleNum]
+                        break
+                bundleNum+=1   
+        elif action == "diffMt":
+            break
+        
+    #now repeat, but with 2nd allele
+    while len(bundle)>2:
+        action = determine_action(bundle[1],bundle[2])
+        print "Action to carry out : %s"%(action)
+        if action == "sep":
+            break
+        elif action == "merge":
+            bundle[1] = merge_bundles(bundle[1],bundle[2])
+            del bundle[2]
+        elif "del" in action:
+            nameOfBundleToDelete = action.split('\t')[1]
+            bundleNum = 0
+            print "Going to delete %s"%nameOfBundleToDelete
+            print "Searching..."
+            for b in bundle:
+                print bundleNum,b
+                if type(b["name"]) is list:
+                    print "b is a list"
+                    for n in b["name"]:
+                        print "\t",n
+                        if nameOfBundleToDelete == n:
+                            print "Deleting!"
+                            del bundle[bundleNum]
+                            break
+                else:
+                    print "not a list"
+                    print "\t",b["name"]
+                    if nameOfBundleToDelete == b["name"]:
+                        print "Deleting!"
+                        del bundle[bundleNum]
+                        break
+                bundleNum+=1   
+#            print "Deleting bundle[1]: %s"%(get_name(bundle[1]))
+#            del bundle[1]
+#        elif action == "2del":
+#            print "Deleting bundle[2]: %s"%(get_name(bundle[2]))
+#            del bundle[2]
+        elif action == "diffMt":
+            break
+            
+    print "FINAL BUNDLES:"
+    for b in bundle:
+        print b
+        
+    display_final_results(bundle, finalBundle.wellId)
+        
+
+def display_final_results(bundle, wellId):
+    topNames = list()
+    for bun in bundle:
+        name = ""
+        if type(bun["name"]) is list:
+            for n in bun["name"]:
+                name = "%s\%s"%(name,n)
+            name = name[1:]
+        else:
+            name = bun["name"]
+        topNames.append(name)
+        
+    top2 = 0
+    resultStr = "<><>\t%s"%(wellId)
+    for tn in topNames:
+        resultStr = "%s\t%s"%(resultStr,tn)
+        top2+=1
+        if top2 ==2:
+            break
+    print resultStr
+    
+    
+def determine_action(bunA, bunB):
+    print "## Determining action"
+    #get major types, names
+    majorTypeA = get_major_type(bunA)
+    majorTypeB = get_major_type(bunB)
+    nameA = get_name(bunA)
+    nameB = get_name(bunB)
+    countsA = get_counts(bunA)
+    countsB = get_counts(bunB)
+    
+    print "1) Same major type? %s vs %s"%(majorTypeA, majorTypeB)
+    #if same major type
+    if majorTypeA == majorTypeB:
+        print "\tYes"
+        #Reanalyse both bundles to determine if one dominates the other, i.e. get overlap score
+        openList = [nameA,nameB]
+        overlapScores = get_overlap_score(openList)
+         #if scores independent of each other, i.e. similar scores:
+        if scores_similar(overlapScores)== True:
+            #if scores both very low:
+            if is_high_overlap(overlapScores) == True:
+                print "Recommend merging"
+                return "merge"
+            #if scores both very high, i.e. not a lot of cross hybing
+            else:
+                #if read count of second is a lot lower than that of first (e.g. a quarter?) discard it
+                print "Assessing counts %s vs %s"%(countsA, countsB)
+                if (sum(countsA)*1.0) / (sum(countsB)*1.0) > FOLD_DIFF_IN_COUNTS:
+                    print "Too big a disparity in counts - chuck away %s"%nameB
+                    print "Return statement: del\t%s"%nameB
+                    return "del\t%s"%nameB
+                else:
+                    #keep both seperate
+                    print "Recommend keeping seperate"
+                    return "sep"
+                    
+                
+                #merge both
+        #if one dominates the other:
+        else:
+            #remove dominated one!
+            if overlapScores[0]["oScore"] > overlapScores[1]["oScore"]:
+                print "Del2 : Recommend removing %s"% overlapScores[1]["name"]
+                print "Return phrase is del\t%s"%overlapScores[1]["name"]
+                return "del\t%s"%overlapScores[1]["name"]
+            else:
+                print "Del1: Recommend removing %s"% overlapScores[0]["name"]
+                print "Return phrase is del\t%s"%overlapScores[0]["name"]
+                return "del\t%s"%overlapScores[0]["name"]
+            
+        
+        
+    
+    #if different major type
+    else:
+        print "\tNo"
+        return "diffMt"
+      
+def scores_similar(overlapScores):
+    print "Are scores similar? (%.5f,%.5f)"%(overlapScores[0]["oScore"],overlapScores[1]["oScore"])
+    if overlapScores[0]["oScore"] / overlapScores[1]["oScore"] > PROP_DIFF_IN_OVERLAP:
+        print "No"
+        return False
+    elif overlapScores[1]["oScore"] / overlapScores[0]["oScore"] > PROP_DIFF_IN_OVERLAP:
+        print "No"
+        return False
+    else:
+        print "Yes"
+        return True
+
+            
+def is_high_overlap(overlapScores): 
+    print "Is there a lot of cross-hyb/overlap?(%.5f,%.5f)"%(overlapScores[0]["oScore"],overlapScores[1]["oScore"])
+    if overlapScores[0]["oScore"] < 0.25 and overlapScores[1]["oScore"] < 0.25:
+        print "Yes"
+        return True
+    else:
+        print "No"
+        return False
+    
+    
+def get_major_type(bundle):
+    if type(bundle["majorType"]) is list:
+        return bundle["majorType"][0]
+    else:
+        return bundle["majorType"]
+    
+def get_counts(bundle):
+    if type(bundle["countsPerAmp"][0]) is list:
+        return bundle["countsPerAmp"][0]
+    else:
+        return bundle["countsPerAmp"]
+    
+def get_name(bundle):
+    if type(bundle["name"]) is list:
+        return bundle["name"][0]
+    else:
+        return bundle["name"]
+
+
+    #check major type
 def calc_score_ratios(finalBundle):
     scores= []
     names = []
@@ -214,12 +444,15 @@ def calc_score_ratios(finalBundle):
 
         
 
-    
+
         
 def should_be_merged(bunA,bunB):
     mtA = ""
     mtB = ""
-    
+    nameA = ""
+    nameB = ""
+    nameAGroup = None
+    nameBGroup = None
     countsA = 0
     countsB = 0
     scoreA = 0.0
@@ -228,36 +461,89 @@ def should_be_merged(bunA,bunB):
         mtA = bunA["majorType"][0]
         countsA = bunA["countsPerAmp"][0] 
         scoreA = bunA["score"][0]
+        nameA = bunA["name"][0]
     else:
         mtA = bunA["majorType"]
         countsA = bunA["countsPerAmp"]
         scoreA = bunA["score"]
+        nameA = bunA["name"]
+    nameAGroup = bunA["name"]
+    
     if type(bunB["majorType"]) is list:
         mtB = bunB["majorType"][0]
         countsB = bunB["countsPerAmp"][0]
-        scoreB = bunB["score"][0] 
+        scoreB = bunB["score"][0]
+        nameB = bunB["name"][0]
     else:
         mtB = bunB["majorType"]
         countsB = bunB["countsPerAmp"]
         scoreB = bunB["score"]
+        nameB = bunB["name"]
+    nameBGroup = bunB["name"]
         
-    print "&&& Should these be merged? %s vs %s"%(mtA, mtB)
+    print "&&& Should these be merged? %s vs %s"%(nameAGroup, nameBGroup)
+    openList = list()
+    openList.append(nameA)
+    openList.append(nameB)
     
-    print "Calculating ratios"
-    print sum(countsA)," / (",sum(countsA)," + ",sum(countsB),")"
-    ratioAB = (sum(countsA) *1.0) / (sum(countsB)*1.0)
-    totScore = scoreA + scoreB
-    scoreRatio = scoreA / (totScore*1.0)
-    
-    print ratioAB
+    #really, only merge if major types are the same
     if mtA == mtB:
-        if ratioAB >= 0.75 and ratioAB <= 1.33:
-            if scoreRatio > 0.4 and scoreRatio < 0.6:
-                print "Returning true"
-                return True
+        #if, when cross-aligned, one dominates over the other it's best not to merge but rather ditch the lower one
+        overlapScores = get_overlap_score(openList)
+        print "Overlap Scores:"
+        for o in overlapScores.items():
+            print "%s\t%.5f"%(o[0],o[1])
+        
+        #verify only 2 results obtained - debugging
+        if len(overlapScores) !=2:
+            print "^^^ ERROR: Too many overlap Scores"
+            
+        #convert to lists
+        overlapScoreLists = []
+        for o in overlapScores.items():
+            overlapScoreLists.append({"name":o[0],"oScore":o[1]})
+            
+        if overlapScoreLists[0]["oScore"] / overlapScoreLists[1]["oScore"] > 10:
+            print "Recommend ditching",overlapScoreLists[1]["name"]
+        elif overlapScoreLists[1]["oScore"] / overlapScoreLists[0]["oScore"] > 10:
+            print "Recommend ditching",overlapScoreLists[0]["name"]
+        else:
+            print "Keep both"
+        #Check score disparity here ^^^^ i.e. not what score is returned but the modifiers, e.g. 0404 score goes from 1000 to 200 when 0408 reads are removed. This is a 0.2 modifier. Whereas 0408 score goes from 2000 to 1000 which is only a 0.5 modifier
+
+#        totNewScore = 0
+#        for r in result:
+#            totNewScore+=r["newScore"]
+#        
+#        newRatio =  result[0]["newScore"]/ (totNewScore *1.0)
+#        #if within tolerance
+#        print "New ratio",newRatio
+#        if newRatio > 0.3 and newRatio < 0.7:
+#            print "Ratios are within tolerance (%.2f) - returning true - merger!"%newRatio
+#            return True
+#    
+#    print "Returning false - no merge"
     
-    print "Returning false"
     return False
+            
+    
+    
+#    print "RESULT: ",result
+#    print "Calculating ratios"
+#    print sum(countsA)," / (",sum(countsA)," + ",sum(countsB),")"
+#    ratioAB = (sum(countsA) *1.0) / (sum(countsB)*1.0)
+#    totScore = scoreA + scoreB
+#    scoreRatio = scoreA / (totScore*1.0)
+#    
+#    print ratioAB
+#    if mtA == mtB:
+#        if ratioAB >= 0.75 and ratioAB <= 1.33:
+#            if scoreRatio > 0.4 and scoreRatio < 0.6:
+#                print "Returning true"
+#                return True
+#    
+#    print "Returning false"
+#    return False
     
     
 def merge_bundles(bunA, bunB):
@@ -362,6 +648,8 @@ def make_homozygous(bundle):
     bunB = bundle[1]
     scoreA = 0.0
     scoreB = 0.0
+    nameA = ""
+    nameB =""
     if type(bunA["majorType"]) is list:
         iter = 0
         topCounts = 0
@@ -372,6 +660,7 @@ def make_homozygous(bundle):
                 topCounts = sum(c)
             iter+=1
         countsA = bunA["countsPerAmp"][bestIter]
+        nameA = bunA["name"][bestIter]
         
         iter = 0
         topScore = 0
@@ -385,6 +674,7 @@ def make_homozygous(bundle):
     else:
         countsA = bunA["countsPerAmp"]
         scoreA = bunA["score"]
+        nameA = bunA["name"]
         
         
     if type(bunB["majorType"]) is list:
@@ -397,6 +687,7 @@ def make_homozygous(bundle):
                 topCounts = sum(c)
             iter+=1
         countsB = bunB["countsPerAmp"][bestIter]
+        nameB = bunB["name"][bestIter]
         
         iter = 0
         topScore = 0
@@ -410,9 +701,23 @@ def make_homozygous(bundle):
     else:
         countsB = bunB["countsPerAmp"]
         scoreB = bunB["score"]
-    
+        nameB = bunB["name"]
     newBundle = []    
     
+    
+    print 
+    print
+    print
+    print "%%%%%%%%%%%%%%%%%%%%"
+    print "doing mini validation"
+    
+    openList = list()
+
+    openList.append(nameA)
+    openList.append(nameB)
+    get_overlap_score(openList)
+    
+
     if sum(countsA) > sum(countsB):    
         newBundle.append(bundle[0])
     else:
