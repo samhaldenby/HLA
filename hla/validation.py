@@ -150,6 +150,7 @@ def polish_results(finalBundle):
         bundle.append({"name" : na, "score" : sc, "majorType" : mt, "countsPerAmp" : cpa})
         
     #Now, go through all results in bundle and determine whether any merging (due to ambiguity) should occur
+    print "-> Will now compare [0] bundles with [1] bundles iteratively"
     while len(bundle)>1:
         action = determine_action(bundle[0],bundle[1])
         print "Returned Action: %s"%action
@@ -184,7 +185,9 @@ def polish_results(finalBundle):
         elif action == "diffMt":
             break
         
+    print "-> Done comparing [0] and [1] bundles"
     #now repeat, but with 2nd allele
+    print "-> Will now compare [1] bundles with [2] bundles iteratively"
     while len(bundle)>2:
         action = determine_action(bundle[1],bundle[2])
         print "Action to carry out : %s"%(action)
@@ -223,7 +226,7 @@ def polish_results(finalBundle):
 #            del bundle[2]
         elif action == "diffMt":
             break
-            
+    print "-> Done comparing [1] and [2] bundles"            
     print "FINAL BUNDLES:"
     for b in bundle:
         print b
@@ -254,7 +257,7 @@ def display_final_results(bundle, wellId):
     
     
 def determine_action(bunA, bunB):
-    print "## Determining action"
+    print "## Determining action for %s vs %s"%(get_name(bunA),get_name(bunB))
     #get major types, names
     majorTypeA = get_major_type(bunA)
     majorTypeB = get_major_type(bunB)
@@ -262,6 +265,26 @@ def determine_action(bunA, bunB):
     nameB = get_name(bunB)
     countsA = get_counts(bunA)
     countsB = get_counts(bunB)
+    
+    ##########################################################
+#    print "0) DEBUG: Do 1st and 2nd overlap with each other?"
+#    #Reanalyse both bundles to determine if one dominates the other, i.e. get overlap score
+#    openList = [nameA,nameB]
+#    overlapScores = get_overlap_score(openList)
+#    #if scores dependent of each other, i.e. different scores
+#    if scores_similar(overlapScores)== False:
+#        if overlapScores[0]["oScore"] > overlapScores[1]["oScore"]:
+#            print "Del2 : Recommend removing %s"% overlapScores[1]["name"]
+#            print "Return phrase is del\t%s"%overlapScores[1]["name"]
+#            return "del\t%s"%overlapScores[1]["name"]
+#        else:
+#            print "Del1: Recommend removing %s"% overlapScores[0]["name"]
+#            print "Return phrase is del\t%s"%overlapScores[0]["name"]
+#            return "del\t%s"%overlapScores[0]["name"]
+          
+    ######################
+    
+    
     
     print "1) Same major type? %s vs %s"%(majorTypeA, majorTypeB)
     #if same major type

@@ -156,6 +156,7 @@ class DnaClusters(Clusters):
         drb3=0
         drb5=0
         for line in fqFile:
+            line = line.strip()
             isSequenceLine = dnaRegEx.match(line) != None
             if isSequenceLine is True:                
                 keepLine = True
