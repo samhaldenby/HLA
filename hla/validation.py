@@ -267,20 +267,20 @@ def determine_action(bunA, bunB):
     countsB = get_counts(bunB)
     
     ##########################################################
-#    print "0) DEBUG: Do 1st and 2nd overlap with each other?"
-#    #Reanalyse both bundles to determine if one dominates the other, i.e. get overlap score
-#    openList = [nameA,nameB]
-#    overlapScores = get_overlap_score(openList)
-#    #if scores dependent of each other, i.e. different scores
-#    if scores_similar(overlapScores)== False:
-#        if overlapScores[0]["oScore"] > overlapScores[1]["oScore"]:
-#            print "Del2 : Recommend removing %s"% overlapScores[1]["name"]
-#            print "Return phrase is del\t%s"%overlapScores[1]["name"]
-#            return "del\t%s"%overlapScores[1]["name"]
-#        else:
-#            print "Del1: Recommend removing %s"% overlapScores[0]["name"]
-#            print "Return phrase is del\t%s"%overlapScores[0]["name"]
-#            return "del\t%s"%overlapScores[0]["name"]
+    print "0) DEBUG: Do 1st and 2nd overlap with each other?"
+    #Reanalyse both bundles to determine if one dominates the other, i.e. get overlap score
+    openList = [nameA,nameB]
+    overlapScores = get_overlap_score(openList)
+    #if scores dependent of each other, i.e. different scores
+    if scores_similar(overlapScores)== False:
+        if overlapScores[0]["oScore"] > overlapScores[1]["oScore"]:
+            print "Del2 : Recommend removing %s"% overlapScores[1]["name"]
+            print "Return phrase is del\t%s"%overlapScores[1]["name"]
+            return "del\t%s"%overlapScores[1]["name"]
+        else:
+            print "Del1: Recommend removing %s"% overlapScores[0]["name"]
+            print "Return phrase is del\t%s"%overlapScores[0]["name"]
+            return "del\t%s"%overlapScores[0]["name"]
           
     ######################
     
