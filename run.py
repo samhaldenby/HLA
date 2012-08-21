@@ -325,12 +325,12 @@ if __name__ == '__main__':
 
     
     primerMap = {}
-    #primerMap["2_2_F"] = primer_info.PrimerInfo("2_2_F",0,160)#0,160
+    primerMap["2_2_F"] = primer_info.PrimerInfo("2_2_F",0,160)#0,160
     primerMap["2_4_F"] = primer_info.PrimerInfo("2_4_F",1,150)#1,150
     primerMap["2_4_R"] = primer_info.PrimerInfo("2_4_R",50,190) #50,190
     primerMap["2_5_R"] = primer_info.PrimerInfo("2_5_R",70,210) #70,200
     #primerMap["2_1_F"] = primer_info.PrimerInfo("2_1_F",-70,-187) #70,180
-    primerMap["2_1_F"] = primer_info.PrimerInfo("2_1_F",70,180) #70,180
+    #primerMap["2_1_F"] = primer_info.PrimerInfo("2_1_F",70,180) #70,180
     
     run_analysis(referenceName=options.referenceName, inputPath=options.inputPath, wellId=options.wellId, logTag=options.logTag, outputTag=options.outputTag, dynalResults=options.dynalResults)
     #print "DRUM ROLL.....",align.Aligner.Order

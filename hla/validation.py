@@ -1,6 +1,7 @@
 import logging
 import hla.align as align
 from hla.process_results import *
+import hla.all_ranked_results as AllRankedResults
 
 '''
 Created on 21 May 2012
@@ -65,68 +66,7 @@ def compare_with_cam2(resultsBundle, wellId, cam2FileName):
             print ">R> %s\tNo"%allele
     print ">R>>\t%s\t%s"%(wellId,score)
         
-#def compare_with_dynal(resultsBundle, wellId, dynalFileName):
-#    
-#    logging.info('Comparing to dynal results')
-#                 
-#    print "*** %s ***"%wellId
-#                 
-#    #open dynal results file
-#    try:
-#        dynalFile = open(dynalFileName)
-#    except IOError:
-#        logging.error("Unable to open %s",dynalFileName)
-#    
-#    
-#    #grab correct line from dynal results
-#    dynalResultsLine = ""
-#    for line in dynalFile:
-#        if wellId in line:
-#            dynalResultsLine = line.strip()
-#            
-#    dynalResultsLineSplit = dynalResultsLine.split("\t")
-#    firstDynalHit = dynalResultsLineSplit[1]
-#    secondDynalHit = dynalResultsLineSplit[2]
-#    
-#    #compile dynal results
-#    dynalResults = set()
-#    dynalResults.add(firstDynalHit)
-#    dynalResults.add(secondDynalHit)
-#    print ">>",dynalResults
-#    
-#    
-#    score = 0
-#    for allele in resultsBundle.accepted_alleles:
-#        if allele in dynalResults:
-#            score+=1
-#            print ">> %s\tYes"%allele
-#        else:
-#            print ">> %s\tNo"%allele
-#            
-#    cam2File.close()
-    
-        
-    
-#    #compile these results
-#    myResults = set()
-#    score = 0
-#    top2 = 0
-#    for entry in sorted(results, key=results.get, reverse=True):
-#      #  print "ENTRY:",entry, len(newScoreMap)
-#        name = entry
-#        #score = results[entry]
-#        
-#        if top2 < 2:
-#            modifiedName = "%s%s"%(name[5:7],name[8:])
-#            
-#            if modifiedName in dynalResults:
-#                score+=1
-#                print ">> %s\tYes"%modifiedName
-#            else:
-#                print ">> %s\tNo"%modifiedName
-#        top2+=1
-#        
-#    print ">> Score:\t\t\t\t\t\t\t\t\t%d"% score
+
         
 def polish_results(finalBundle):
     #first, process bundle into corresponding genes, major types, counts and scores
@@ -270,6 +210,9 @@ def determine_action(bunA, bunB):
     print "0) DEBUG: Do 1st and 2nd overlap with each other?"
     #Reanalyse both bundles to determine if one dominates the other, i.e. get overlap score
     openList = [nameA,nameB]
+    print "NAME A AND B ARE %s and %s"%(nameA, nameB)
+    #get_overlap_score_consensus(bunA, bunB)
+    print "^???????????????????????^^^^^^^^"
     overlapScores = get_overlap_score(openList)
     #if scores dependent of each other, i.e. different scores
     if scores_similar(overlapScores)== False:
@@ -773,5 +716,149 @@ def display_results(bundle, wellId):
     print "%s\t%s\t%s"%(wellId, names[0],names[1])
         
     
-            
+def get_overlap_score_consensus(bunA, bunB):     
+    
+         
+         
+    results = AllRankedResults.results
+    #get list of gene names in both bundles and form 2 lists
+    namesA = []
+    namesB = []
+    
+    if type(bunA["name"]) is list:
+        namesA = bunA["name"]
+    else:
+        namesA.append(bunA["name"])
+    if type(bunB["name"]) is list:
+        namesB = bunB["name"]
+    else:
+        namesB.append(bunB["name"])
         
+    print "Lists are %s and %s"%(namesA, namesB)
+    
+    
+    scoresA = []
+    scoresB = []
+    for nameA in namesA:
+        for nameB in namesB:
+            openList = [nameA,nameB]
+            print "New OPEN LIST = %s"%openList
+             
+            rejectionList = set() #{geneName}
+            for gene in openList:
+                if gene in results:
+                    resultsForThisGene = results[gene]
+                    #find genes in openList
+                    for target in openList:
+                        if target!=gene: #don't add to rejection list if querying the same gene that was removed from the set for reanalyse - would be daft!
+                            if target not in resultsForThisGene:
+                                print target,"not in",gene 
+                                rejectionList.add(target)
+                            elif resultsForThisGene[target] ==0.0:
+                                print target,"has 0 score with",gene
+                                rejectionList.add(target)
+                            else:
+                                print target,"has score",resultsForThisGene[target],"with",gene
+                            
+            for entry in rejectionList:
+                print "HERE",entry
+                
+            #now create accepted list
+            newOpenList = []
+            for gene in openList:
+                if gene not in rejectionList:
+                    newOpenList.append(gene)
+                    
+            openList = newOpenList
+            
+            #print "OPENLIST: ", openList
+            
+            #now remove entries from results so that only those on the open list remain
+            newResults = {}
+            for entry in results.items():
+                geneName = entry[0]
+                if geneName in openList:
+                    newResults[geneName] = entry[1]
+            
+            #add initial results
+            newResults['First']=results['First']
+            results = newResults
+                
+            #create map
+            scores = {}
+            originalScores = {}
+            for gene in openList:
+                scores[gene]=[]
+                for entry in results.items():
+                    omittedGene = entry[0]
+                    result = entry[1]
+                    #print "Result for %s = %s"%(entry, result)
+                    if gene in result:  #i.e. if it's not the one being omited, OR!!! if it got no hits.... deal with this later TODO:
+                        scores[gene].append(result[gene])
+                    if omittedGene =="First":
+                        originalScores[gene]= result[gene]
+        
+           
+            
+            #now, make sure all modifier lists are same length (reason they might not be is due to getting 0 hits)
+            longestList = 0
+            for s in scores.items():
+                if len(s[1]) > longestList:
+                    longestList = len(s[1])
+                
+            for s in scores.items():
+                while len(s[1]) < longestList:
+                    s[1].append(0.0)
+        
+            modifiers = {}
+            for entry in scores.items():
+        
+                gene = entry[0]
+                modifiers[gene]=[]
+        
+                for result in entry[1]:
+                    modifiers[gene].append(result/originalScores[gene])
+        
+            #multiply all modifiers by all scores
+            modifiedScores = {}
+            unmodifiedScores = {}
+            #for each gene
+            overlapScore = {}
+            for entry in scores.items():
+                totScoreForGene =0.0
+                thisScore = 1.0
+                unmodifiedThisScore = 1.0
+                geneName = entry[0]
+                geneScores = entry[1]
+                #multiply all scores
+                for s in geneScores:
+                    thisScore *= s
+                    if s>1:
+                        unmodifiedThisScore *=s
+                #mow multiply by modifiers
+                
+                print "--- Modifier for %s"%(geneName)
+                for m in modifiers[geneName]:
+                    print "\t--- %.2f"%(m) 
+                    
+                    thisScore *= m
+                    totScoreForGene +=m
+                
+                #deduct one from score (the 1 comes from self crossing being a 1 - don't care about this so get rid
+                totScoreForGene -=1
+                print "--- Tot Score for %s = %.2f"
+                
+                overlapScore[geneName] = totScoreForGene
+                
+            #convert overlapScores to list
+           
+            overlapScoreLists = []
+            for o in overlapScore.items():
+                overlapScoreLists.append({"name":o[0],"oScore":o[1]})
+            scoresA.append(overlapScore[nameA])
+            scoresB.append(overlapScore[nameB])
+            print "Scores: %.5f vs %.5f"%(scoresA[-1],scoresB[-1])
+    print "SCORES A:",scoresA
+    print "SCORES B:",scoresB
+    
+    return False
